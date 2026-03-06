@@ -20,6 +20,11 @@ export default function Home() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    currentStreak: 0,
+    maxStreak: 0,
+    lastWonDate: null as string | null
+  });
 
   // Load puzzle and state
   useEffect(() => {
@@ -29,6 +34,12 @@ export default function Home() {
         if (!res.ok) throw new Error("Failed to fetch puzzle");
         const data = await res.json();
         setPuzzle(data);
+
+        // Load stats
+        const savedStats = localStorage.getItem('episodle-stats');
+        if (savedStats) {
+          setStats(JSON.parse(savedStats));
+        }
 
         // Check local storage for today's state
         const today = new Date().toISOString().split('T')[0];
@@ -87,9 +98,45 @@ export default function Home() {
 
     if (isCorrect) {
       setGameState('won');
-      setTimeout(() => setIsModalOpen(true), 1500); // Wait a beat before modal
+
+      // Update Stats
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+
+      const newStats = { ...stats };
+
+      // Check if consecutive day
+      if (stats.lastWonDate) {
+        const lastDate = new Date(stats.lastWonDate);
+        const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          newStats.currentStreak += 1;
+        } else if (diffDays > 1) {
+          newStats.currentStreak = 1;
+        }
+        // if diffDays === 0, they already won today (shouldn't happen with game state check but safe)
+      } else {
+        newStats.currentStreak = 1;
+      }
+
+      if (newStats.currentStreak > newStats.maxStreak) {
+        newStats.maxStreak = newStats.currentStreak;
+      }
+
+      newStats.lastWonDate = todayStr;
+      setStats(newStats);
+      localStorage.setItem('episodle-stats', JSON.stringify(newStats));
+
+      setTimeout(() => setIsModalOpen(true), 1500);
     } else if (newGuesses.length >= 6) {
       setGameState('lost');
+
+      // Reset streak on loss
+      const newStats = { ...stats, currentStreak: 0 };
+      setStats(newStats);
+      localStorage.setItem('episodle-stats', JSON.stringify(newStats));
+
       setTimeout(() => setIsModalOpen(true), 1500);
     } else {
       // Advance the image if the user hasn't lost yet
@@ -153,6 +200,7 @@ export default function Home() {
           isWinner={gameState === 'won'}
           guesses={guesses}
           dailyShowName={puzzle.showName}
+          stats={stats}
           onClose={() => setIsModalOpen(false)}
         />
       )}

@@ -9,13 +9,18 @@ interface ShareModalProps {
     isWinner: boolean;
     guesses: Guess[];
     dailyShowName: string;
+    stats: {
+        currentStreak: number;
+        maxStreak: number;
+    };
     onClose: () => void;
 }
 
-export default function ShareModal({ isWinner, guesses, dailyShowName, onClose }: ShareModalProps) {
+export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose }: ShareModalProps) {
     const generateShareText = () => {
         const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         const attemptCount = isWinner ? guesses.length : 'X';
+        const streakText = stats.currentStreak > 1 ? `\nStreak: ${stats.currentStreak} 🔥` : '';
 
         let emojiGrid = '';
         for (let i = 0; i < 6; i++) {
@@ -26,7 +31,7 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, onClose }
             }
         }
 
-        return `Episodle - ${today}\nScore: ${attemptCount}/6\n${emojiGrid}\n\nPlay at: [Your URL Here]`;
+        return `Episodle - ${today}\nScore: ${attemptCount}/6${streakText}\n${emojiGrid}\n\nPlay at: [Your URL Here]`;
     };
 
     const handleShare = async () => {
@@ -51,6 +56,17 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, onClose }
                     The show was: <span className="font-bold text-white block mt-2 text-2xl">{dailyShowName}</span>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4 my-2">
+                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                        <div className="text-3xl font-black text-white">{stats.currentStreak}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">Current Streak</div>
+                    </div>
+                    <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
+                        <div className="text-3xl font-black text-white">{stats.maxStreak}</div>
+                        <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">Max Streak</div>
+                    </div>
+                </div>
+
                 <div className="text-2xl tracking-widest bg-black/30 py-3 rounded-xl border border-gray-800/50">
                     {guesses.map((g, i) => (
                         <span key={i}>{g.isCorrect ? '🟩' : '🟥'}</span>
@@ -60,20 +76,20 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, onClose }
                     ))}
                 </div>
 
-                <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-2"></div>
+                <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-1"></div>
 
                 <Countdown />
 
                 <div className="flex gap-4 mt-2">
                     <button
                         onClick={handleShare}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                        className="flex-1 bg-white hover:bg-gray-200 text-black font-bold py-3 px-6 rounded-lg transition-all transform active:scale-95"
                     >
                         Share
                     </button>
                     <button
                         onClick={onClose}
-                        className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                        className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-95"
                     >
                         Close
                     </button>
