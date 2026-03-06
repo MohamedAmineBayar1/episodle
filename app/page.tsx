@@ -8,6 +8,7 @@ import ShareModal from '@/components/ShareModal';
 import { DailyPuzzle } from '@/lib/gameLogic';
 
 interface Guess {
+  showId?: number;
   showName: string;
   isCorrect: boolean;
   hint?: string;
@@ -92,7 +93,7 @@ export default function Home() {
       }
     }
 
-    const newGuess = { showName: show.name, isCorrect, hint };
+    const newGuess = { showId: show.id, showName: show.name, isCorrect, hint };
     const newGuesses = [...guesses, newGuess];
     setGuesses(newGuesses);
 
@@ -175,7 +176,11 @@ export default function Home() {
         </section>
 
         <section className="mt-8 transition-opacity duration-300">
-          <SearchBar onGuess={handleGuess} disabled={gameState !== 'playing'} />
+          <SearchBar
+            onGuess={handleGuess}
+            disabled={gameState !== 'playing'}
+            guessedShowIds={guesses.map(g => g.showId).filter(id => id !== undefined) as number[]}
+          />
         </section>
 
         <section>

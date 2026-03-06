@@ -11,9 +11,10 @@ interface Show {
 interface SearchBarProps {
     onGuess: (show: Show) => void;
     disabled: boolean;
+    guessedShowIds: number[];
 }
 
-export default function SearchBar({ onGuess, disabled }: SearchBarProps) {
+export default function SearchBar({ onGuess, disabled, guessedShowIds }: SearchBarProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Show[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +29,8 @@ export default function SearchBar({ onGuess, disabled }: SearchBarProps) {
             try {
                 const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
                 const data = await res.json();
-                setResults(data.results || []);
+                const filtered = (data.results || []).filter((s: Show) => !guessedShowIds.includes(s.id));
+                setResults(filtered);
                 setIsOpen(true);
             } catch (e) {
                 console.error("Search failed", e);
