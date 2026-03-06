@@ -1,65 +1,161 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from 'react';
+import SearchBar from '@/components/SearchBar';
+import GuessGrid from '@/components/GuessGrid';
+import GameImage from '@/components/GameImage';
+import ShareModal from '@/components/ShareModal';
+import { DailyPuzzle } from '@/lib/gameLogic';
+
+interface Guess {
+  showName: string;
+  isCorrect: boolean;
+  hint?: string;
+}
 
 export default function Home() {
+  const [puzzle, setPuzzle] = useState<DailyPuzzle | null>(null);
+  const [guesses, setGuesses] = useState<Guess[]>([]);
+  const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load puzzle and state
+  useEffect(() => {
+    async function loadGame() {
+      try {
+        const res = await fetch('/api/puzzle');
+        if (!res.ok) throw new Error("Failed to fetch puzzle");
+        const data = await res.json();
+        setPuzzle(data);
+
+        // Check local storage for today's state
+        const today = new Date().toISOString().split('T')[0];
+        const savedState = localStorage.getItem(`episodle-${today}`);
+
+        if (savedState) {
+          const parsed = JSON.parse(savedState);
+          setGuesses(parsed.guesses || []);
+          setGameState(parsed.gameState || 'playing');
+          setCurrentImageIndex(parsed.currentImageIndex !== undefined ? parsed.currentImageIndex : (parsed.guesses?.length || 0));
+          if (parsed.gameState !== 'playing') {
+            setIsModalOpen(true);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading game", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadGame();
+  }, []);
+
+  // Save state when it changes
+  useEffect(() => {
+    if (!puzzle) return;
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`episodle-${today}`, JSON.stringify({
+      guesses,
+      gameState,
+      currentImageIndex
+    }));
+  }, [guesses, gameState, currentImageIndex, puzzle]);
+
+  const handleGuess = (show: any) => {
+    if (gameState !== 'playing' || !puzzle) return;
+
+    const isCorrect = show.id === puzzle.showId;
+
+    // Generate a simple hint
+    let hint = '';
+    if (!isCorrect) {
+      // Show year or genre as a hint based on which guess number it is
+      if (guesses.length === 0 && show.first_air_date) {
+        hint = `Aired ${show.first_air_date.substring(0, 4)} vs ${puzzle.firstAirDate.substring(0, 4)}`;
+      } else if (guesses.length === 2 && puzzle.genres.length > 0) {
+        hint = `Genre: ${puzzle.genres[0]}`;
+      } else {
+        hint = "Try again!";
+      }
+    }
+
+    const newGuess = { showName: show.name, isCorrect, hint };
+    const newGuesses = [...guesses, newGuess];
+    setGuesses(newGuesses);
+
+    if (isCorrect) {
+      setGameState('won');
+      setTimeout(() => setIsModalOpen(true), 1500); // Wait a beat before modal
+    } else if (newGuesses.length >= 6) {
+      setGameState('lost');
+      setTimeout(() => setIsModalOpen(true), 1500);
+    } else {
+      // Advance the image if the user hasn't lost yet
+      setCurrentImageIndex(newGuesses.length);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white text-2xl animate-pulse">Loading target...</div>;
+  }
+
+  if (!puzzle) {
+    return <div className="min-h-screen bg-black text-red-500 flex items-center justify-center text-2xl">Error loading puzzle. Check API key.</div>;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-black text-white px-4 py-8 font-sans selection:bg-gray-800">
+      <div className="max-w-3xl mx-auto space-y-8">
+
+        <header className="text-center space-y-2">
+          <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent drop-shadow-lg uppercase">
+            Episodle
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-gray-400 font-medium tracking-wide">
+            Guess the show from the random episode
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        </header>
+
+        <section className="relative group">
+          <GameImage
+            imageUrls={puzzle.imageUrls}
+            currentIndex={currentImageIndex}
+            maxUnlockedIndex={guesses.length}
+            onNavigate={(index) => setCurrentImageIndex(index)}
+          />
+        </section>
+
+        <section className="mt-8 transition-opacity duration-300">
+          <SearchBar onGuess={handleGuess} disabled={gameState !== 'playing'} />
+        </section>
+
+        <section>
+          <GuessGrid guesses={guesses} maxGuesses={6} />
+        </section>
+
+        {gameState !== 'playing' && (
+          <div className="text-center mt-6 fade-in">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="text-gray-400 hover:text-white underline underline-offset-4 decoration-gray-600 font-medium"
+            >
+              View Results
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {isModalOpen && gameState !== 'playing' && (
+        <ShareModal
+          isWinner={gameState === 'won'}
+          guesses={guesses}
+          dailyShowName={puzzle.showName}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
+    </main>
   );
 }
