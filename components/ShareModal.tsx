@@ -15,13 +15,15 @@ interface ShareModalProps {
     };
     onClose: () => void;
     onRefresh?: () => void;
+    isArchive?: boolean;
 }
 
-export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose, onRefresh }: ShareModalProps) {
+export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose, onRefresh, isArchive }: ShareModalProps) {
     const generateShareText = () => {
         const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         const attemptCount = isWinner ? guesses.length : 'X';
-        const streakText = stats.currentStreak > 1 ? `\nStreak: ${stats.currentStreak} 🔥` : '';
+        const streakText = !isArchive && stats.currentStreak > 1 ? `\nStreak: ${stats.currentStreak} 🔥` : '';
+        const titleText = isArchive ? `Episodle Archive Result` : `Episodle - ${today}`;
 
         let emojiGrid = '';
         for (let i = 0; i < 6; i++) {
@@ -32,7 +34,7 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
             }
         }
 
-        return `Episodle - ${today}\nScore: ${attemptCount}/6${streakText}\n${emojiGrid}\n\nPlay at: [Your URL Here]`;
+        return `${titleText}\nScore: ${attemptCount}/6${streakText}\n${emojiGrid}\n\nPlay at: [Your URL Here]`;
     };
 
     const handleShare = async () => {

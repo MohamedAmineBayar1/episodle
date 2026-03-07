@@ -5,8 +5,12 @@ import SearchBar from '@/components/SearchBar';
 import GuessGrid from '@/components/GuessGrid';
 import GameImage from '@/components/GameImage';
 import ShareModal from '@/components/ShareModal';
+import StatsModal from '@/components/StatsModal';
 import { DailyPuzzle } from '@/lib/gameLogic';
+import { Stats, getStats, updateStats, saveGameState, getGameState } from '@/lib/storage';
 import confetti from 'canvas-confetti';
+import { BarChart3, Calendar } from 'lucide-react';
+import Link from 'next/link';
 
 interface Guess {
   showId?: number;
@@ -15,44 +19,44 @@ interface Guess {
   hint?: string;
 }
 
-export default function Home() {
+interface HomeProps {
+  date?: string; // For archive mode
+}
+
+export default function Home({ date }: HomeProps) {
   const [puzzle, setPuzzle] = useState<DailyPuzzle | null>(null);
   const [guesses, setGuesses] = useState<Guess[]>([]);
   const [gameState, setGameState] = useState<'playing' | 'won' | 'lost'>('playing');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    currentStreak: 0,
-    maxStreak: 0,
-    lastWonDate: null as string | null
-  });
+  const [stats, setStats] = useState<Stats>(getStats());
+
+  const todayStr = date || new Date().toLocaleDateString('en-CA');
+  const isArchive = !!date;
 
   // Load puzzle and state
   useEffect(() => {
     async function loadGame() {
       try {
-        const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        setLoading(true);
         const res = await fetch(`/api/puzzle?date=${todayStr}`);
         if (!res.ok) throw new Error("Failed to fetch puzzle");
         const data = await res.json();
         setPuzzle(data);
 
         // Load stats
-        const savedStats = localStorage.getItem('episodle-stats');
-        if (savedStats) {
-          setStats(JSON.parse(savedStats));
-        }
+        setStats(getStats());
 
         // Check local storage for today's state
-        const savedState = localStorage.getItem(`episodle-${todayStr}`);
+        const savedState = getGameState(todayStr);
 
         if (savedState) {
-          const parsed = JSON.parse(savedState);
-          setGuesses(parsed.guesses || []);
-          setGameState(parsed.gameState || 'playing');
-          setCurrentImageIndex(parsed.currentImageIndex !== undefined ? parsed.currentImageIndex : (parsed.guesses?.length || 0));
-          if (parsed.gameState !== 'playing') {
+          setGuesses(savedState.guesses || []);
+          setGameState(savedState.gameState || 'playing');
+          setCurrentImageIndex(savedState.currentImageIndex !== undefined ? savedState.currentImageIndex : (savedState.guesses?.length || 0));
+          if (savedState.gameState !== 'playing') {
             setIsModalOpen(true);
           }
         } else {
@@ -69,18 +73,17 @@ export default function Home() {
       }
     }
     loadGame();
-  }, []);
+  }, [todayStr]);
 
   // Save state when it changes
   useEffect(() => {
     if (!puzzle) return;
-    const todayStr = new Date().toLocaleDateString('en-CA');
-    localStorage.setItem(`episodle-${todayStr}`, JSON.stringify({
+    saveGameState(todayStr, {
       guesses,
       gameState,
-      currentImageIndex
-    }));
-  }, [guesses, gameState, currentImageIndex, puzzle]);
+      currentImageIndex: currentImageIndex
+    });
+  }, [guesses, gameState, currentImageIndex, puzzle, todayStr]);
 
   const triggerFireworks = () => {
     const duration = 5 * 1000;
@@ -129,43 +132,17 @@ export default function Home() {
       setGameState('won');
       triggerFireworks();
 
-      // Update Stats
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
-
-      const newStats = { ...stats };
-
-      // Check if consecutive day
-      if (stats.lastWonDate) {
-        const lastDate = new Date(stats.lastWonDate);
-        const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 1) {
-          newStats.currentStreak += 1;
-        } else if (diffDays > 1) {
-          newStats.currentStreak = 1;
-        }
-        // if diffDays === 0, they already won today (shouldn't happen with game state check but safe)
-      } else {
-        newStats.currentStreak = 1;
-      }
-
-      if (newStats.currentStreak > newStats.maxStreak) {
-        newStats.maxStreak = newStats.currentStreak;
-      }
-
-      newStats.lastWonDate = todayStr;
-      setStats(newStats);
-      localStorage.setItem('episodle-stats', JSON.stringify(newStats));
+      // Update Stats (only for non-archive games usually, but here we follow instructions)
+      const updatedStats = updateStats(true, newGuesses.length);
+      if (updatedStats) setStats(updatedStats);
 
       setTimeout(() => setIsModalOpen(true), 1500);
     } else if (newGuesses.length >= 6) {
       setGameState('lost');
 
-      // Reset streak on loss
-      const newStats = { ...stats, currentStreak: 0 };
-      setStats(newStats);
-      localStorage.setItem('episodle-stats', JSON.stringify(newStats));
+      // Update Stats
+      const updatedStats = updateStats(false, 6);
+      if (updatedStats) setStats(updatedStats);
 
       setTimeout(() => setIsModalOpen(true), 1500);
     } else {
@@ -186,12 +163,25 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white px-4 py-8 font-sans selection:bg-gray-800">
       <div className="max-w-3xl mx-auto space-y-8">
 
-        <header className="text-center space-y-2">
+        <header className="relative text-center space-y-2">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex gap-4">
+            <Link href="/archive" className="p-2 text-gray-400 hover:text-white transition-colors">
+              <Calendar size={24} />
+            </Link>
+          </div>
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-4">
+            <button
+              onClick={() => setIsStatsModalOpen(true)}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <BarChart3 size={24} />
+            </button>
+          </div>
           <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent drop-shadow-lg uppercase">
             Episodle
           </h1>
           <p className="text-gray-400 font-medium tracking-wide">
-            Guess the show from the random episode
+            {isArchive ? `Archive: ${todayStr}` : 'Guess the show from the random episode'}
           </p>
         </header>
 
@@ -237,6 +227,14 @@ export default function Home() {
           stats={stats}
           onClose={() => setIsModalOpen(false)}
           onRefresh={() => window.location.reload()}
+          isArchive={isArchive}
+        />
+      )}
+
+      {isStatsModalOpen && (
+        <StatsModal
+          stats={stats}
+          onClose={() => setIsStatsModalOpen(false)}
         />
       )}
     </main>
