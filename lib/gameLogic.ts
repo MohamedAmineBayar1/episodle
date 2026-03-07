@@ -9,9 +9,9 @@ export interface DailyPuzzle {
     genres: string[];
 }
 
-// Ensure the puzzle stays the same for a given day, or use manual seed for testing
-export async function getDailyPuzzle(manualSeed?: number): Promise<DailyPuzzle> {
-    const seed = manualSeed !== undefined ? manualSeed : getDailySeed();
+// Ensure the puzzle stays the same for a given day, or use manual seed/date for testing
+export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Promise<DailyPuzzle> {
+    const seed = manualSeed !== undefined ? manualSeed : getDailySeed(dateStr);
     const rng = seedRandom(seed);
 
     // Stage 1: Try to find a single episode with at least 6 stills
@@ -78,8 +78,10 @@ export async function getDailyPuzzle(manualSeed?: number): Promise<DailyPuzzle> 
         const itemIndex = Math.floor(rng() * 20);
 
         const popularShows = await getPopularShows(page);
+        if (!popularShows?.results || !popularShows.results[itemIndex]) continue;
         const selectedShow = popularShows.results[itemIndex];
         const showDetails = await getShowDetails(selectedShow.id);
+        if (!showDetails || !showDetails.seasons) continue;
 
         const validSeasons = showDetails.seasons.filter((s: any) => s.season_number > 0 && s.episode_count > 0);
         if (validSeasons.length === 0) continue;

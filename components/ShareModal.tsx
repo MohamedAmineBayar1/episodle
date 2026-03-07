@@ -14,9 +14,10 @@ interface ShareModalProps {
         maxStreak: number;
     };
     onClose: () => void;
+    onRefresh?: () => void;
 }
 
-export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose }: ShareModalProps) {
+export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose, onRefresh }: ShareModalProps) {
     const generateShareText = () => {
         const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         const attemptCount = isWinner ? guesses.length : 'X';
@@ -78,7 +79,7 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
 
                 <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-1"></div>
 
-                <Countdown />
+                <Countdown onFinish={onRefresh} />
 
                 <div className="flex gap-4 mt-2">
                     <button

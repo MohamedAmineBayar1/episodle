@@ -32,7 +32,8 @@ export default function Home() {
   useEffect(() => {
     async function loadGame() {
       try {
-        const res = await fetch('/api/puzzle');
+        const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        const res = await fetch(`/api/puzzle?date=${todayStr}`);
         if (!res.ok) throw new Error("Failed to fetch puzzle");
         const data = await res.json();
         setPuzzle(data);
@@ -44,8 +45,7 @@ export default function Home() {
         }
 
         // Check local storage for today's state
-        const today = new Date().toISOString().split('T')[0];
-        const savedState = localStorage.getItem(`episodle-${today}`);
+        const savedState = localStorage.getItem(`episodle-${todayStr}`);
 
         if (savedState) {
           const parsed = JSON.parse(savedState);
@@ -55,6 +55,12 @@ export default function Home() {
           if (parsed.gameState !== 'playing') {
             setIsModalOpen(true);
           }
+        } else {
+          // New day, reset current session state
+          setGuesses([]);
+          setGameState('playing');
+          setCurrentImageIndex(0);
+          setIsModalOpen(false);
         }
       } catch (err) {
         console.error("Error loading game", err);
@@ -68,8 +74,8 @@ export default function Home() {
   // Save state when it changes
   useEffect(() => {
     if (!puzzle) return;
-    const today = new Date().toISOString().split('T')[0];
-    localStorage.setItem(`episodle-${today}`, JSON.stringify({
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    localStorage.setItem(`episodle-${todayStr}`, JSON.stringify({
       guesses,
       gameState,
       currentImageIndex
@@ -230,6 +236,7 @@ export default function Home() {
           dailyShowName={puzzle.showName}
           stats={stats}
           onClose={() => setIsModalOpen(false)}
+          onRefresh={() => window.location.reload()}
         />
       )}
     </main>

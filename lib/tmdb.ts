@@ -1,9 +1,9 @@
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const getApiKey = () => process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 async function fetchFromTMDB(endpoint: string, params: Record<string, string> = {}) {
     const url = new URL(`${BASE_URL}${endpoint}`);
-    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('api_key', getApiKey() || '');
     url.searchParams.append('language', 'en-US');
 
     Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
@@ -33,7 +33,7 @@ export async function searchShows(query: string) {
     if (!query) return { results: [] };
     // Disable caching for search so it's fresh
     const url = new URL(`${BASE_URL}/search/tv`);
-    url.searchParams.append('api_key', TMDB_API_KEY || '');
+    url.searchParams.append('api_key', getApiKey() || '');
     url.searchParams.append('query', query);
     url.searchParams.append('language', 'en-US');
 

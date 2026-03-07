@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 
-export default function Countdown() {
+interface CountdownProps {
+    onFinish?: () => void;
+}
+
+export default function Countdown({ onFinish }: CountdownProps) {
     const [timeLeft, setTimeLeft] = useState({
         hours: 0,
         minutes: 0,
@@ -20,8 +24,8 @@ export default function Countdown() {
             const diff = nextMidnight.getTime() - now.getTime();
 
             if (diff <= 0) {
-                // Should technically trigger a refresh or just show 00:00:00
                 setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
+                if (onFinish) onFinish();
                 return;
             }
 
@@ -33,7 +37,7 @@ export default function Countdown() {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, []);
+    }, [onFinish]);
 
     const format = (num: number) => num.toString().padStart(2, '0');
 
