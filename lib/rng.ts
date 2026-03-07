@@ -14,8 +14,8 @@ export function seedRandom(seed: number) {
 /** Helper to get today's seed string based on UTC Midnight */
 export const getDailySeed = () => {
   const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = (now.getUTCMonth() + 1).toString().padStart(2, '0');
-  const d = now.getUTCDate().toString().padStart(2, '0');
+  const y = now.getFullYear();
+  const m = (now.getMonth() + 1).toString().padStart(2, '0');
+  const d = now.getDate().toString().padStart(2, '0');
   return parseInt(`${y}${m}${d}`);
 };

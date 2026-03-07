@@ -13,9 +13,9 @@ export default function Countdown() {
         const timer = setInterval(() => {
             const now = new Date();
 
-            // Calculate next midnight UTC
+            // Calculate next midnight local
             const nextMidnight = new Date();
-            nextMidnight.setUTCHours(24, 0, 0, 0);
+            nextMidnight.setHours(24, 0, 0, 0);
 
             const diff = nextMidnight.getTime() - now.getTime();
 
