@@ -16,11 +16,20 @@ export async function getDailyPuzzle(manualSeed?: number): Promise<DailyPuzzle> 
 
     // Stage 1: Try to find a single episode with at least 6 stills
     for (let i = 0; i < 30; i++) {
-        const page = Math.floor(rng() * 25) + 1;
+        // With current filters, we only have ~2 pages of results (36 total)
+        const page = Math.floor(rng() * 2) + 1;
         const itemIndex = Math.floor(rng() * 20);
 
         const popularShows = await getPopularShows(page);
+        if (!popularShows?.results || popularShows.results.length === 0) {
+            continue;
+        }
         const selectedShow = popularShows.results[itemIndex];
+
+        if (!selectedShow) {
+            continue;
+        }
+
         const showDetails = await getShowDetails(selectedShow.id);
 
         const validSeasons = showDetails.seasons.filter((s: any) => s.season_number > 0 && s.episode_count > 0);
@@ -65,7 +74,7 @@ export async function getDailyPuzzle(manualSeed?: number): Promise<DailyPuzzle> 
 
     // Stage 2: Optimized Fallback - Collect 6 stills from any episodes of the same show
     for (let i = 0; i < 30; i++) {
-        const page = Math.floor(rng() * 25) + 1;
+        const page = Math.floor(rng() * 2) + 1;
         const itemIndex = Math.floor(rng() * 20);
 
         const popularShows = await getPopularShows(page);

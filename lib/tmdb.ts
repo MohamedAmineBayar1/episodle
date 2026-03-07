@@ -20,7 +20,13 @@ async function fetchFromTMDB(endpoint: string, params: Record<string, string> = 
 }
 
 export async function getPopularShows(page = 1) {
-    return fetchFromTMDB('/tv/popular', { page: page.toString() });
+    return fetchFromTMDB('/discover/tv', {
+        page: page.toString(),
+        with_type: '2',
+        'vote_count.gte': '1000',
+        with_original_language: 'en',
+        sort_by: 'popularity.desc'
+    });
 }
 
 export async function searchShows(query: string) {
