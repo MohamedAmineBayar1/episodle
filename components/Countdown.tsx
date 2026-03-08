@@ -17,15 +17,19 @@ export default function Countdown({ onFinish }: CountdownProps) {
         const timer = setInterval(() => {
             const now = new Date();
 
-            // Calculate next midnight local
+            // Calculate next midnight local robustly
             const nextMidnight = new Date();
-            nextMidnight.setHours(24, 0, 0, 0);
+            nextMidnight.setHours(0, 0, 0, 0);
+            nextMidnight.setDate(nextMidnight.getDate() + 1);
 
             const diff = nextMidnight.getTime() - now.getTime();
 
             if (diff <= 0) {
                 setTimeLeft({ hours: 0, minutes: 0, seconds: 0 });
-                if (onFinish) onFinish();
+                // Small delay to ensure the server time has definitely crossed over
+                if (onFinish) {
+                    setTimeout(onFinish, 1000);
+                }
                 return;
             }
 

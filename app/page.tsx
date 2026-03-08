@@ -54,12 +54,23 @@ export default function Home({ date }: HomeProps) {
         const savedState = getGameState(todayStr);
 
         if (savedState) {
-          setGuesses(savedState.guesses || []);
-          setGameState(savedState.gameState || 'playing');
-          setUnlockedImagesCount(savedState.unlockedImagesCount !== undefined ? savedState.unlockedImagesCount : (savedState.guesses?.length || 0));
-          setCurrentImageIndex(savedState.currentImageIndex !== undefined ? savedState.currentImageIndex : (savedState.guesses?.length || 0));
-          if (savedState.gameState !== 'playing') {
-            setIsModalOpen(true);
+          // Safety check: if showId exists and doesn't match current puzzle showId, and it's not archive mode
+          // This handles cases where the show might have shifted mid-day due to ranking changes
+          if (!isArchive && savedState.showId && data.showId && savedState.showId !== data.showId) {
+            console.log("Show ID mismatch detected. Resetting current day state.");
+            setGuesses([]);
+            setGameState('playing');
+            setUnlockedImagesCount(0);
+            setCurrentImageIndex(0);
+            setIsModalOpen(false);
+          } else {
+            setGuesses(savedState.guesses || []);
+            setGameState(savedState.gameState || 'playing');
+            setUnlockedImagesCount(savedState.unlockedImagesCount !== undefined ? savedState.unlockedImagesCount : (savedState.guesses?.length || 0));
+            setCurrentImageIndex(savedState.currentImageIndex !== undefined ? savedState.currentImageIndex : (savedState.guesses?.length || 0));
+            if (savedState.gameState !== 'playing') {
+              setIsModalOpen(true);
+            }
           }
         } else {
           // New day, reset current session state
@@ -85,7 +96,8 @@ export default function Home({ date }: HomeProps) {
       guesses,
       gameState,
       currentImageIndex: currentImageIndex,
-      unlockedImagesCount: unlockedImagesCount
+      unlockedImagesCount: unlockedImagesCount,
+      showId: puzzle.showId
     });
   }, [guesses, gameState, currentImageIndex, unlockedImagesCount, puzzle, todayStr]);
 

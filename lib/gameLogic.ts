@@ -14,24 +14,38 @@ export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Pro
     const seed = manualSeed !== undefined ? manualSeed : getDailySeed(dateStr);
     const rng = seedRandom(seed);
 
-    // Stage 1: Try to find a single episode with at least 6 stills
-    for (let i = 0; i < 30; i++) {
-        // With current filters, we only have ~2 pages of results (36 total)
-        const page = Math.floor(rng() * 2) + 1;
-        const itemIndex = Math.floor(rng() * 20);
+    // Fetch a larger pool of shows to ensure stability if rankings shift
+    // We'll fetch 3 pages (60 shows) and sort them by ID
+    let allPopularShows: any[] = [];
+    try {
+        const pages = [1, 2, 3];
+        const results = await Promise.all(pages.map(p => getPopularShows(p)));
+        allPopularShows = results.flatMap(r => r.results || []);
+    } catch (e) {
+        console.error("Error fetching popular shows for pool:", e);
+    }
 
-        const popularShows = await getPopularShows(page);
-        if (!popularShows?.results || popularShows.results.length === 0) {
-            continue;
-        }
-        const selectedShow = popularShows.results[itemIndex];
+    if (allPopularShows.length === 0) {
+        throw new Error('Could not fetch any popular shows.');
+    }
 
-        if (!selectedShow) {
-            continue;
-        }
+    // Sort by ID to ensure a stable order regardless of TMDb's real-time ranking shifts
+    allPopularShows.sort((a, b) => a.id - b.id);
+
+    // Stage 1: Try to find a single episode with at least 6 stills from the pool
+    // We'll shuffle the indices of our stable pool
+    const poolIndices = Array.from({ length: allPopularShows.length }, (_, i) => i);
+    // Fisher-Yates shuffle using our seeded RNG
+    for (let i = poolIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [poolIndices[i], poolIndices[j]] = [poolIndices[j], poolIndices[i]];
+    }
+
+    for (const itemIndex of poolIndices) {
+        const selectedShow = allPopularShows[itemIndex];
+        if (!selectedShow) continue;
 
         const showDetails = await getShowDetails(selectedShow.id);
-
         const validSeasons = showDetails.seasons.filter((s: any) => s.season_number > 0 && s.episode_count > 0);
         if (validSeasons.length === 0) continue;
 
@@ -39,17 +53,14 @@ export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Pro
         const selectedSeason = validSeasons[seasonIndex];
 
         try {
-            // Fetch all episode details for the selected season
             const seasonData = await getSeasonDetails(selectedShow.id, selectedSeason.season_number);
             const episodesWithStills = seasonData.episodes.filter((ep: any) => ep.still_path);
 
             if (episodesWithStills.length === 0) continue;
 
-            // Pick a random episode from those that have at least one still
             const episodeIndex = Math.floor(rng() * episodesWithStills.length);
             const selectedEpisode = episodesWithStills[episodeIndex];
 
-            // Now, get all stills for this specific episode
             const imagesData = await getEpisodeImages(selectedShow.id, selectedSeason.season_number, selectedEpisode.episode_number);
             const stills = imagesData.stills || [];
 
@@ -72,14 +83,9 @@ export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Pro
         } catch (e) { }
     }
 
-    // Stage 2: Optimized Fallback - Collect 6 stills from any episodes of the same show
-    for (let i = 0; i < 30; i++) {
-        const page = Math.floor(rng() * 2) + 1;
-        const itemIndex = Math.floor(rng() * 20);
-
-        const popularShows = await getPopularShows(page);
-        if (!popularShows?.results || !popularShows.results[itemIndex]) continue;
-        const selectedShow = popularShows.results[itemIndex];
+    // Stage 2: Fallback - Collect 6 stills from any episodes of the same show (using the same stable pool)
+    for (const itemIndex of poolIndices) {
+        const selectedShow = allPopularShows[itemIndex];
         const showDetails = await getShowDetails(selectedShow.id);
         if (!showDetails || !showDetails.seasons) continue;
 
@@ -88,7 +94,6 @@ export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Pro
 
         const collectedStills: string[] = [];
 
-        // Check seasons until we have enough stills
         for (const s of validSeasons) {
             try {
                 const seasonData = await getSeasonDetails(selectedShow.id, s.season_number);
@@ -113,5 +118,5 @@ export async function getDailyPuzzle(manualSeed?: number, dateStr?: string): Pro
         }
     }
 
-    throw new Error('Could not find enough high-quality stills from any show/episode.');
+    throw new Error('Could not find enough high-quality stills from any show in the pool.');
 }

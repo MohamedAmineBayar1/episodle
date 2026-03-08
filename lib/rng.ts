@@ -13,7 +13,12 @@ export function seedRandom(seed: number) {
 
 /** Helper to get a seed string based on a specific date or today's local date */
 export const getDailySeed = (dateStr?: string) => {
-  const now = dateStr ? new Date(dateStr) : new Date();
+  if (dateStr && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [y, m, d] = dateStr.split('-');
+    return parseInt(`${y}${m}${d}`);
+  }
+
+  const now = new Date();
   const y = now.getFullYear();
   const m = (now.getMonth() + 1).toString().padStart(2, '0');
   const d = now.getDate().toString().padStart(2, '0');
