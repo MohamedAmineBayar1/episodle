@@ -10,19 +10,31 @@ interface Show {
 
 interface SearchBarProps {
     onGuess: (show: Show) => void;
+    onSkip: () => void;
     disabled: boolean;
     guessedShowIds: number[];
 }
 
-export default function SearchBar({ onGuess, disabled, guessedShowIds }: SearchBarProps) {
+export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }: SearchBarProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Show[]>([]);
     const [isOpen, setIsOpen] = useState(false);
+    const [selectedShow, setSelectedShow] = useState<Show | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const handleSubmit = () => {
+        if (selectedShow) {
+            onGuess(selectedShow);
+            setSelectedShow(null);
+            setQuery('');
+        } else if (query.trim() === '') {
+            onSkip();
+        }
+    };
 
     useEffect(() => {
         const fetchResults = async () => {
-            if (query.trim().length < 2) {
+            if (query.trim().length < 2 || selectedShow) {
                 setResults([]);
                 return;
             }
@@ -39,7 +51,7 @@ export default function SearchBar({ onGuess, disabled, guessedShowIds }: SearchB
 
         const debounce = setTimeout(fetchResults, 300);
         return () => clearTimeout(debounce);
-    }, [query]);
+    }, [query, selectedShow]);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -52,39 +64,54 @@ export default function SearchBar({ onGuess, disabled, guessedShowIds }: SearchB
     }, [wrapperRef]);
 
     const handleSelect = (show: Show) => {
-        onGuess(show);
-        setQuery('');
+        setSelectedShow(show);
+        setQuery(show.name);
         setIsOpen(false);
     };
 
-    return (
-        <div ref={wrapperRef} className="relative w-full max-w-md mx-auto z-10">
-            <input
-                type="text"
-                disabled={disabled}
-                className="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                placeholder="Guess a TV show..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => query.trim().length >= 2 && setIsOpen(true)}
-            />
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setQuery(e.target.value);
+        if (selectedShow) setSelectedShow(null);
+    };
 
-            {isOpen && results.length > 0 && (
-                <ul className="absolute w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                    {results.map((show) => (
-                        <li
-                            key={show.id}
-                            onClick={() => handleSelect(show)}
-                            className="p-3 hover:bg-gray-700 cursor-pointer text-white flex justify-between items-center border-b border-gray-700 last:border-0"
-                        >
-                            <span>{show.name}</span>
-                            <span className="text-gray-400 text-sm">
-                                {show.first_air_date ? show.first_air_date.substring(0, 4) : 'Unknown'}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+    return (
+        <div ref={wrapperRef} className="relative w-full max-w-md mx-auto z-10 flex gap-2">
+            <div className="relative flex-1">
+                <input
+                    type="text"
+                    disabled={disabled}
+                    className="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    placeholder="search for a show or submit to skip"
+                    value={query}
+                    onChange={handleInputChange}
+                    onFocus={() => query.trim().length >= 2 && !selectedShow && setIsOpen(true)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                />
+
+                {isOpen && results.length > 0 && (
+                    <ul className="absolute w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg max-h-60 overflow-y-auto shadow-xl z-20">
+                        {results.map((show) => (
+                            <li
+                                key={show.id}
+                                onClick={() => handleSelect(show)}
+                                className="p-3 hover:bg-gray-700 cursor-pointer text-white flex justify-between items-center border-b border-gray-700 last:border-0"
+                            >
+                                <span>{show.name}</span>
+                                <span className="text-gray-400 text-sm">
+                                    {show.first_air_date ? show.first_air_date.substring(0, 4) : 'Unknown'}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+            <button
+                onClick={handleSubmit}
+                disabled={disabled}
+                className="px-6 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors disabled:opacity-50"
+            >
+                Submit
+            </button>
         </div>
     );
 }

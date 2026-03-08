@@ -32,6 +32,7 @@ export default function Home({ date }: HomeProps) {
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>(getStats());
+  const [unlockedImagesCount, setUnlockedImagesCount] = useState(0);
 
   const todayStr = date || new Date().toLocaleDateString('en-CA');
   const isArchive = !!date;
@@ -55,6 +56,7 @@ export default function Home({ date }: HomeProps) {
         if (savedState) {
           setGuesses(savedState.guesses || []);
           setGameState(savedState.gameState || 'playing');
+          setUnlockedImagesCount(savedState.unlockedImagesCount !== undefined ? savedState.unlockedImagesCount : (savedState.guesses?.length || 0));
           setCurrentImageIndex(savedState.currentImageIndex !== undefined ? savedState.currentImageIndex : (savedState.guesses?.length || 0));
           if (savedState.gameState !== 'playing') {
             setIsModalOpen(true);
@@ -63,6 +65,7 @@ export default function Home({ date }: HomeProps) {
           // New day, reset current session state
           setGuesses([]);
           setGameState('playing');
+          setUnlockedImagesCount(0);
           setCurrentImageIndex(0);
           setIsModalOpen(false);
         }
@@ -81,9 +84,10 @@ export default function Home({ date }: HomeProps) {
     saveGameState(todayStr, {
       guesses,
       gameState,
-      currentImageIndex: currentImageIndex
+      currentImageIndex: currentImageIndex,
+      unlockedImagesCount: unlockedImagesCount
     });
-  }, [guesses, gameState, currentImageIndex, puzzle, todayStr]);
+  }, [guesses, gameState, currentImageIndex, unlockedImagesCount, puzzle, todayStr]);
 
   const triggerFireworks = () => {
     const duration = 5 * 1000;
@@ -147,8 +151,42 @@ export default function Home({ date }: HomeProps) {
       setTimeout(() => setIsModalOpen(true), 1500);
     } else {
       // Advance the image if the user hasn't lost yet
-      setCurrentImageIndex(newGuesses.length);
+      const nextUnlockedCount = Math.max(unlockedImagesCount, Math.min(newGuesses.length, 5));
+      setUnlockedImagesCount(nextUnlockedCount);
+      setCurrentImageIndex(nextUnlockedCount);
     }
+  };
+
+  const handleNavigate = (index: number) => {
+    if (gameState === 'playing') {
+      const nextUnlockedCount = Math.max(unlockedImagesCount, index);
+      setUnlockedImagesCount(nextUnlockedCount);
+    }
+    setCurrentImageIndex(index);
+  };
+
+  const handleSkip = () => {
+    if (gameState !== 'playing') return;
+
+    if (unlockedImagesCount >= 5) {
+      handleGiveUp();
+    } else {
+      const nextIndex = unlockedImagesCount + 1;
+      setUnlockedImagesCount(nextIndex);
+      setCurrentImageIndex(nextIndex);
+    }
+  };
+
+  const handleGiveUp = () => {
+    if (gameState !== 'playing' || !puzzle) return;
+
+    setGameState('lost');
+
+    // Update Stats
+    const updatedStats = updateStats(false, guesses.length);
+    if (updatedStats) setStats(updatedStats);
+
+    setIsModalOpen(true);
   };
 
   if (loading) {
@@ -189,14 +227,15 @@ export default function Home({ date }: HomeProps) {
           <GameImage
             imageUrls={puzzle.imageUrls}
             currentIndex={currentImageIndex}
-            maxUnlockedIndex={guesses.length}
-            onNavigate={(index) => setCurrentImageIndex(index)}
+            maxUnlockedIndex={unlockedImagesCount}
+            onNavigate={handleNavigate}
           />
         </section>
 
-        <section className="mt-8 transition-opacity duration-300">
+        <section className="mt-8 transition-opacity duration-300 space-y-4">
           <SearchBar
             onGuess={handleGuess}
+            onSkip={handleSkip}
             disabled={gameState !== 'playing'}
             guessedShowIds={guesses.map(g => g.showId).filter(id => id !== undefined) as number[]}
           />
