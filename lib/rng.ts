@@ -24,3 +24,20 @@ export const getDailySeed = (dateStr?: string) => {
   const d = now.getDate().toString().padStart(2, '0');
   return parseInt(`${y}${m}${d}`);
 };
+
+/** Helper to get days since a fixed epoch (e.g., 2024-01-01) for stable rotation */
+export const getDaysSinceEpoch = (dateStr?: string) => {
+  const epoch = Date.UTC(2024, 0, 1);
+  let targetDate;
+
+  if (dateStr && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    targetDate = Date.UTC(y, m - 1, d);
+  } else {
+    const now = new Date();
+    targetDate = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  const diff = targetDate - epoch;
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+};
