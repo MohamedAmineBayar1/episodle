@@ -31,47 +31,51 @@ export default function ArchivePage() {
                     <h1 className="text-4xl font-black tracking-tighter uppercase">Archive</h1>
                 </header>
 
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {dates.map((date) => {
                         const status = hasPlayedDate(date);
                         const isToday = date === new Date().toLocaleDateString('en-CA');
+                        const dateObj = new Date(date);
 
                         return (
                             <Link
                                 key={date}
                                 href={isToday ? '/' : `/archive/${date}`}
-                                className="group flex items-center justify-between p-5 bg-gray-900/50 border border-gray-800 hover:border-gray-600 rounded-2xl transition-all active:scale-[0.98]"
+                                className={`group relative aspect-square p-2 bg-gray-900/50 border flex flex-col items-center justify-center text-center rounded-2xl transition-all active:scale-[0.98] ${isToday
+                                        ? 'border-blue-500/50 hover:border-blue-500 bg-blue-500/5'
+                                        : 'border-gray-800 hover:border-gray-600'
+                                    }`}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-2 h-2 rounded-full ${isToday ? 'bg-blue-500 animate-pulse' : 'bg-gray-700'}`} />
-                                    <div>
-                                        <span className="text-lg font-bold text-white tracking-tight">
-                                            {new Date(date).toLocaleDateString(undefined, {
-                                                weekday: 'short',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                year: 'numeric'
-                                            })}
-                                        </span>
-                                        {isToday && <span className="ml-2 text-[10px] font-black uppercase text-blue-500 tracking-widest">Today</span>}
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                        {dateObj.toLocaleDateString(undefined, { weekday: 'short' })}
+                                    </div>
+                                    <div className="text-2xl font-black tracking-tighter">
+                                        {dateObj.getDate()}
+                                    </div>
+                                    <div className="text-[10px] font-bold uppercase text-gray-400">
+                                        {dateObj.toLocaleDateString(undefined, { month: 'short' })}
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4">
+                                <div className="absolute top-2 right-2">
                                     {status === 'won' && (
-                                        <span className="flex items-center gap-1.5 text-xs font-bold text-green-400 bg-green-400/10 px-3 py-1 rounded-full border border-green-400/20">
+                                        <div className="text-green-500 bg-green-500/20 p-1 rounded-full border border-green-500/20">
                                             <CheckCircle2 size={12} />
-                                            Won
-                                        </span>
+                                        </div>
                                     )}
                                     {status === 'lost' && (
-                                        <span className="flex items-center gap-1.5 text-xs font-bold text-red-400 bg-red-400/10 px-3 py-1 rounded-full border border-red-400/20">
+                                        <div className="text-red-500 bg-red-500/20 p-1 rounded-full border border-red-500/20">
                                             <XCircle size={12} />
-                                            Lost
-                                        </span>
+                                        </div>
                                     )}
-                                    <ChevronRight size={20} className="text-gray-600 group-hover:text-gray-400 transition-colors" />
                                 </div>
+
+                                {isToday && (
+                                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-500 text-[8px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-blue-500/20">
+                                        Today
+                                    </div>
+                                )}
                             </Link>
                         );
                     })}
