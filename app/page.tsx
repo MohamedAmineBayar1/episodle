@@ -163,7 +163,7 @@ export default function Home({ date }: HomeProps) {
       setTimeout(() => setIsModalOpen(true), 1500);
     } else {
       // Advance the image if the user hasn't lost yet
-      const nextUnlockedCount = Math.max(unlockedImagesCount, Math.min(newGuesses.length, 5));
+      const nextUnlockedCount = Math.min(5, Math.max(unlockedImagesCount + 1, newGuesses.length));
       setUnlockedImagesCount(nextUnlockedCount);
       setCurrentImageIndex(nextUnlockedCount);
     }
