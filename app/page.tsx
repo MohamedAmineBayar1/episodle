@@ -214,12 +214,12 @@ export default function Home({ date }: HomeProps) {
       <div className="max-w-3xl mx-auto space-y-8">
 
         <header className="relative text-center space-y-2">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex gap-4">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex gap-4 z-10">
             <Link href="/archive" className="p-2 text-gray-400 hover:text-white transition-colors">
               <Calendar size={24} />
             </Link>
           </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-4">
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-4 z-10">
             <button
               onClick={() => setIsStatsModalOpen(true)}
               className="p-2 text-gray-400 hover:text-white transition-colors"
