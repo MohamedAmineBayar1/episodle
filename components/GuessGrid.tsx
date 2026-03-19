@@ -10,8 +10,6 @@ interface GuessGridProps {
 }
 
 export default function GuessGrid({ guesses, maxGuesses = 6 }: GuessGridProps) {
-    const emptyRows = Math.max(0, maxGuesses - guesses.length);
-
     return (
         <div className="w-full max-w-md mx-auto my-6 grid gap-2">
             {guesses.map((guess, idx) => (
@@ -29,12 +27,6 @@ export default function GuessGrid({ guesses, maxGuesses = 6 }: GuessGridProps) {
                 </div>
             ))}
 
-            {Array.from({ length: emptyRows }).map((_, idx) => (
-                <div
-                    key={`empty-${idx}`}
-                    className="p-3 rounded-lg border-2 border-gray-700 bg-gray-800/50 min-h-[50px]"
-                />
-            ))}
         </div>
     );
 }
