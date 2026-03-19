@@ -27,8 +27,10 @@ export async function GET(request: Request) {
                 return NextResponse.json({ error: 'Invalid calendar date' }, { status: 400 });
             }
 
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            if (dateStr > todayStr) {
+            // Allow dates up to the furthest timezone on Earth (UTC+14) to prevent timezone bugs
+            // where a user is legitimately on the next day relative to the server's UTC time.
+            const maxDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Kiritimati' });
+            if (dateStr > maxDateStr) {
                 return NextResponse.json({ error: 'Date is in the future' }, { status: 400 });
             }
         }
