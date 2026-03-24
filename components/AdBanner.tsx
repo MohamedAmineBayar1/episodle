@@ -35,7 +35,7 @@ export default function AdBanner({
   }, []);
 
   return (
-    <div className="w-full min-w-[250px] min-h-[50px] text-center overflow-hidden flex justify-center mt-6 fade-in shadow-inner bg-black/20 rounded-xl">
+    <div className="w-full min-w-[250px] min-h-[100px] text-center flex justify-center mt-4 pb-2 fade-in rounded-xl">
       <ins
         className="adsbygoogle"
         style={{ display: "block", minWidth: "250px", width: "100%" }}
