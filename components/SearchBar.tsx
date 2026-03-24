@@ -27,8 +27,9 @@ export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }:
             onGuess(selectedShow);
             setSelectedShow(null);
             setQuery('');
-        } else if (query.trim() === '') {
+        } else {
             onSkip();
+            setQuery('');
         }
     };
 
