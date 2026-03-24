@@ -20,7 +20,7 @@ export default function BMCWidget() {
       "Can't guess today's show? Maybe a coffee for the dev will bring you better luck tomorrow! 😉☕"
     );
     script.setAttribute("data-color", "#FF813F");
-    script.setAttribute("data-position", "Right");
+    script.setAttribute("data-position", "left");
     script.setAttribute("data-x_margin", "18");
     script.setAttribute("data-y_margin", "18");
     script.async = true;

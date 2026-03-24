@@ -1,4 +1,8 @@
+"use client";
+
 import Countdown from './Countdown';
+import AdBanner from './AdBanner';
+import { useRouter } from 'next/navigation';
 
 interface Guess {
     showName: string;
@@ -19,6 +23,8 @@ interface ShareModalProps {
 }
 
 export default function ShareModal({ isWinner, guesses, dailyShowName, stats, onClose, onRefresh, isArchive }: ShareModalProps) {
+    const router = useRouter();
+
     const generateShareText = () => {
         const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
         const attemptCount = isWinner ? guesses.length : 'X';
@@ -83,6 +89,20 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
 
                 <Countdown onFinish={onRefresh} />
 
+                <button
+                    onClick={() => {
+                        const randomDaysAgo = Math.floor(Math.random() * 30) + 1;
+                        const d = new Date();
+                        d.setDate(d.getDate() - randomDaysAgo);
+                        const randomDate = d.toLocaleDateString('en-CA');
+                        onClose();
+                        router.push(`/archive/${randomDate}`);
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-95"
+                >
+                    Play Random Show
+                </button>
+
                 <div className="flex gap-4 mt-2">
                     <button
                         onClick={handleShare}
@@ -97,6 +117,8 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
                         Close
                     </button>
                 </div>
+
+                <AdBanner dataAdSlot="4480966445" />
             </div>
         </div>
     );

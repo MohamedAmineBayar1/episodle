@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import BMCWidget from "@/components/BMCWidget";
+import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,6 +38,7 @@ export default function RootLayout({
             })(window, document, "clarity", "script", "vxb9gp60yu");
           `}
         </Script>
+        <Script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7206404300999787" crossOrigin="anonymous" strategy="afterInteractive" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -44,6 +46,7 @@ export default function RootLayout({
         {children}
         <Analytics />
         <BMCWidget />
+        <CookieBanner />
       </body>
     </html>
   );
