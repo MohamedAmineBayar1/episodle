@@ -3,6 +3,7 @@
 import Countdown from './Countdown';
 import AdBanner from './AdBanner';
 import { useRouter } from 'next/navigation';
+import { hasPlayedDate } from '@/lib/storage';
 
 interface Guess {
     showName: string;
@@ -91,12 +92,26 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
 
                 <button
                     onClick={() => {
-                        const randomDaysAgo = Math.floor(Math.random() * 30) + 1;
-                        const d = new Date();
-                        d.setDate(d.getDate() - randomDaysAgo);
-                        const randomDate = d.toLocaleDateString('en-CA');
-                        onClose();
-                        router.push(`/archive/${randomDate}`);
+                        const unplayedDates = [];
+                        for (let i = 1; i <= 30; i++) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dateStr = d.toLocaleDateString('en-CA');
+                            
+                            // Check if the user has played this date
+                            if (!hasPlayedDate(dateStr)) {
+                                unplayedDates.push(dateStr);
+                            }
+                        }
+
+                        if (unplayedDates.length === 0) {
+                            alert("You already played all the archive games!");
+                        } else {
+                            const randomIndex = Math.floor(Math.random() * unplayedDates.length);
+                            const randomDate = unplayedDates[randomIndex];
+                            onClose();
+                            router.push(`/archive/${randomDate}`);
+                        }
                     }}
                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-95"
                 >
