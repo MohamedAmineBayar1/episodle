@@ -55,7 +55,7 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
 
     return (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-            <div className="bg-gray-900 border border-gray-700 p-8 rounded-2xl max-w-md w-full text-center shadow-2xl flex flex-col gap-6">
+            <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl max-w-md w-full text-center shadow-2xl flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
 
                 <h2 className={`text-4xl font-extrabold pb-2 ${isWinner ? 'text-green-400' : 'text-red-500'}`}>
                     {isWinner ? 'Winner!' : 'Game Over'}
