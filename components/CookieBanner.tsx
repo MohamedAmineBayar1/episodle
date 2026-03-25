@@ -42,7 +42,7 @@ export default function CookieBanner() {
         </button>
       </div>
       <div className="mt-2 text-center">
-        <Link href="/privacy" className="text-xs text-gray-400 hover:text-white underline transition-colors">
+        <Link prefetch={false} href="/privacy" className="text-xs text-gray-400 hover:text-white underline transition-colors">
           Read Privacy Policy
         </Link>
       </div>

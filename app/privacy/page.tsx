@@ -9,7 +9,7 @@ export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-black text-white px-4 py-8 font-sans selection:bg-gray-800">
       <div className="max-w-3xl mx-auto space-y-8 bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-xl">
-        <Link href="/" className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-4 font-medium">
+        <Link prefetch={false} href="/" className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-4 font-medium">
           ← Back to Game
         </Link>
         <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">Privacy Policy for Episodle</h1>

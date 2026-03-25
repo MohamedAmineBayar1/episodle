@@ -22,7 +22,7 @@ export default function ArchivePage() {
         <main className="min-h-screen bg-black text-white px-4 py-8 font-sans">
             <div className="max-w-2xl mx-auto space-y-8">
                 <header className="flex items-center gap-4">
-                    <Link
+                    <Link prefetch={false}
                         href="/"
                         className="p-2 -ml-2 rounded-full hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
                     >
@@ -38,7 +38,7 @@ export default function ArchivePage() {
                         const dateObj = new Date(date);
 
                         return (
-                            <Link
+                            <Link prefetch={false}
                                 key={date}
                                 href={isToday ? '/' : `/archive/${date}`}
                                 className={`group relative aspect-square p-2 bg-gray-900/50 border flex flex-col items-center justify-center text-center rounded-2xl transition-all active:scale-[0.98] ${isToday

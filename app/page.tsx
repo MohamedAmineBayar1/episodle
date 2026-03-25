@@ -216,7 +216,7 @@ export default function Home({ date }: HomeProps) {
 
         <header className="relative text-center space-y-2">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 flex gap-4 z-10">
-            <Link href="/archive" className="p-2 text-gray-400 hover:text-white transition-colors">
+            <Link prefetch={false} href="/archive" className="p-2 text-gray-400 hover:text-white transition-colors">
               <Calendar size={24} />
             </Link>
           </div>
@@ -283,7 +283,7 @@ export default function Home({ date }: HomeProps) {
           <span className="text-gray-700">|</span>
           <a href="#contact" className="hover:text-white transition-colors">Contact</a>
           <span className="text-gray-700">|</span>
-          <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          <Link prefetch={false} href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           <span className="text-gray-700">|</span>
           <button onClick={() => document.getElementById('bmc-wbtn')?.click()} className="hover:text-white transition-colors">Buy Me a Coffee</button>
         </div>
