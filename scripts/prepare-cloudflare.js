@@ -59,4 +59,25 @@ deps.forEach(dep => {
   }
 });
 
+// 3. Create _routes.json for Cloudflare Pages (Direct static routing)
+const routesJson = {
+  version: 1,
+  include: ["/*"],
+  exclude: [
+    "/_next/static/*",
+    "/favicon.ico",
+    "/robots.txt",
+    "/ads.txt",
+    "/*.png",
+    "/*.jpg",
+    "/*.jpeg",
+    "/*.svg",
+    "/*.webp"
+  ]
+};
+
+const routesPath = path.join(assetsDir, '_routes.json');
+fs.writeFileSync(routesPath, JSON.stringify(routesJson, null, 2));
+console.log('Successfully generated _routes.json');
+
 console.log('Preparation complete!');
