@@ -1,4 +1,12 @@
-const getApiKey = () => process.env.TMDB_API_KEY;
+const getApiKey = () => {
+    const key = process.env.TMDB_API_KEY;
+    if (!key) {
+        console.warn("DEBUG: TMDB_API_KEY is undefined in process.env");
+    } else {
+        console.log("DEBUG: TMDB_API_KEY is present (length: " + key.length + ")");
+    }
+    return key;
+};
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 async function fetchFromTMDB(endpoint: string, params: Record<string, string> = {}) {
