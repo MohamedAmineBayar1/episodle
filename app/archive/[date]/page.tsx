@@ -1,4 +1,3 @@
-export const runtime = 'edge';
 
 import Home from '../../page';
 import { redirect } from 'next/navigation';
