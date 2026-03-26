@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cf": "npx @opennextjs/cloudflare build && cp .open-next/worker.js .open-next/assets/_worker.js && cp -r .open-next/cloudflare .open-next/middleware .open-next/server-functions .open-next/.build .open-next/cloudflare-templates .open-next/dynamodb-provider .open-next/assets/",
+    "build:cf": "npx @opennextjs/cloudflare build && node scripts/prepare-cloudflare.js",
     "start": "next start",
     "lint": "eslint"
   },
