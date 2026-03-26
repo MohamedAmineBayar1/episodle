@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import BMCWidget from "@/components/BMCWidget";
 import CookieBanner from "@/components/CookieBanner";
@@ -44,7 +43,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <Analytics />
         <BMCWidget />
         <CookieBanner />
       </body>
