@@ -1,7 +1,13 @@
 const fs = require('fs');
 
-const API_KEY = '85e9c69c4ca390d9f14960b8c01ece60';
+const API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
+
+if (!API_KEY) {
+    console.error("Error: TMDB_API_KEY is not set in environment variables.");
+    console.log("Usage: node --env-file=.env.local scripts/generatePool.js");
+    process.exit(1);
+}
 
 async function fetchFromTMDB(endpoint, params = {}) {
     const url = new URL(`${BASE_URL}${endpoint}`);
