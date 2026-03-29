@@ -1,15 +1,16 @@
 "use client";
 
-
 import { useState, useEffect } from 'react';
 import SearchBar from '@/components/SearchBar';
 import GuessGrid from '@/components/GuessGrid';
 import GameImage from '@/components/GameImage';
 import ShareModal from '@/components/ShareModal';
 import StatsModal from '@/components/StatsModal';
+import StreakFlame from '@/components/StreakFlame';
+import StreakModal from '@/components/StreakModal';
 import AboutSection from '@/components/AboutSection';
 import { DailyPuzzle } from '@/lib/gameLogic';
-import { Stats, getStats, updateStats, saveGameState, getGameState } from '@/lib/storage';
+import { Stats, DailyStreak, getStats, updateStats, saveGameState, getGameState, getDailyStreak, recordDailyPlay } from '@/lib/storage';
 import confetti from 'canvas-confetti';
 import { BarChart3, Calendar } from 'lucide-react';
 import Link from 'next/link';
@@ -32,8 +33,11 @@ export default function Home({ date }: HomeProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>(getStats());
+  const [dailyStreak, setDailyStreak] = useState<DailyStreak>(getDailyStreak());
+  const [hadStreakBreak, setHadStreakBreak] = useState(false);
   const [unlockedImagesCount, setUnlockedImagesCount] = useState(0);
 
   const todayStr = date || new Date().toLocaleDateString('en-CA');
@@ -150,9 +154,16 @@ export default function Home({ date }: HomeProps) {
       setGameState('won');
       triggerFireworks();
 
-      // Update Stats (only for non-archive games usually, but here we follow instructions)
+      // Update Stats
       const updatedStats = updateStats(true, newGuesses.length);
       if (updatedStats) setStats(updatedStats);
+
+      // Daily streak (win or loss counts, not archive)
+      if (!isArchive) {
+        const result = recordDailyPlay(todayStr);
+        setHadStreakBreak(result.streakBroken);
+        setDailyStreak(getDailyStreak());
+      }
 
       setTimeout(() => setIsModalOpen(true), 1500);
     } else if (newGuesses.length >= 6) {
@@ -161,6 +172,13 @@ export default function Home({ date }: HomeProps) {
       // Update Stats
       const updatedStats = updateStats(false, 6);
       if (updatedStats) setStats(updatedStats);
+
+      // Daily streak (win or loss counts, not archive)
+      if (!isArchive) {
+        const result = recordDailyPlay(todayStr);
+        setHadStreakBreak(result.streakBroken);
+        setDailyStreak(getDailyStreak());
+      }
 
       setTimeout(() => setIsModalOpen(true), 1500);
     } else {
@@ -200,6 +218,13 @@ export default function Home({ date }: HomeProps) {
     const updatedStats = updateStats(false, guesses.length);
     if (updatedStats) setStats(updatedStats);
 
+    // Daily streak
+    if (!isArchive) {
+      const result = recordDailyPlay(todayStr);
+      setHadStreakBreak(result.streakBroken);
+      setDailyStreak(getDailyStreak());
+    }
+
     setIsModalOpen(true);
   };
 
@@ -216,10 +241,11 @@ export default function Home({ date }: HomeProps) {
       <div className="max-w-3xl mx-auto space-y-8">
 
         <header className="relative text-center space-y-2">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex gap-4 z-10">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
             <Link prefetch={false} href="/archive" className="p-2 text-gray-400 hover:text-white transition-colors">
               <Calendar size={24} />
             </Link>
+            <StreakFlame streak={dailyStreak} onClick={() => setIsStreakModalOpen(true)} />
           </div>
           <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-4 z-10">
             <button
@@ -306,6 +332,18 @@ export default function Home({ date }: HomeProps) {
         <StatsModal
           stats={stats}
           onClose={() => setIsStatsModalOpen(false)}
+        />
+      )}
+
+      {isStreakModalOpen && (
+        <StreakModal
+          streak={dailyStreak}
+          hadBreakToday={hadStreakBreak}
+          onClose={() => setIsStreakModalOpen(false)}
+          onRestoreUsed={(updated) => {
+            setDailyStreak(updated);
+            setHadStreakBreak(false);
+          }}
         />
       )}
     </main>

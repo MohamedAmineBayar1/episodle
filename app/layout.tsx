@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import BMCWidget from "@/components/BMCWidget";
 import CookieBanner from "@/components/CookieBanner";
+import StreakAnnouncement from "@/components/StreakAnnouncement";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default function RootLayout({
         {children}
         <BMCWidget />
         <CookieBanner />
+        <StreakAnnouncement />
       </body>
     </html>
   );
