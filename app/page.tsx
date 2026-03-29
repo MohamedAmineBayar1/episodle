@@ -8,6 +8,7 @@ import ShareModal from '@/components/ShareModal';
 import StatsModal from '@/components/StatsModal';
 import StreakFlame from '@/components/StreakFlame';
 import StreakModal from '@/components/StreakModal';
+import StreakAnimationOverlay from '@/components/StreakAnimationOverlay';
 import AboutSection from '@/components/AboutSection';
 import { DailyPuzzle } from '@/lib/gameLogic';
 import { Stats, DailyStreak, getStats, updateStats, saveGameState, getGameState, getDailyStreak, recordDailyPlay } from '@/lib/storage';
@@ -38,6 +39,7 @@ export default function Home({ date }: HomeProps) {
   const [stats, setStats] = useState<Stats>(getStats());
   const [dailyStreak, setDailyStreak] = useState<DailyStreak>(getDailyStreak());
   const [hadStreakBreak, setHadStreakBreak] = useState(false);
+  const [showStreakAnimation, setShowStreakAnimation] = useState(false);
   const [unlockedImagesCount, setUnlockedImagesCount] = useState(0);
 
   const todayStr = date || new Date().toLocaleDateString('en-CA');
@@ -162,7 +164,13 @@ export default function Home({ date }: HomeProps) {
       if (!isArchive) {
         const result = recordDailyPlay(todayStr);
         setHadStreakBreak(result.streakBroken);
-        setDailyStreak(getDailyStreak());
+        const updatedStreak = getDailyStreak();
+        setDailyStreak(updatedStreak);
+        
+        // Trigger streak animation for wins
+        if (updatedStreak.streak > 0) {
+          setShowStreakAnimation(true);
+        }
       }
 
       setTimeout(() => setIsModalOpen(true), 1500);
@@ -177,7 +185,13 @@ export default function Home({ date }: HomeProps) {
       if (!isArchive) {
         const result = recordDailyPlay(todayStr);
         setHadStreakBreak(result.streakBroken);
-        setDailyStreak(getDailyStreak());
+        const updatedStreak = getDailyStreak();
+        setDailyStreak(updatedStreak);
+
+        // Trigger streak animation even on loss if they still have a streak
+        if (updatedStreak.streak > 0) {
+          setShowStreakAnimation(true);
+        }
       }
 
       setTimeout(() => setIsModalOpen(true), 1500);
@@ -222,7 +236,12 @@ export default function Home({ date }: HomeProps) {
     if (!isArchive) {
       const result = recordDailyPlay(todayStr);
       setHadStreakBreak(result.streakBroken);
-      setDailyStreak(getDailyStreak());
+      const updatedStreak = getDailyStreak();
+      setDailyStreak(updatedStreak);
+      
+      if (updatedStreak.streak > 0) {
+        setShowStreakAnimation(true);
+      }
     }
 
     setIsModalOpen(true);
@@ -346,6 +365,12 @@ export default function Home({ date }: HomeProps) {
           }}
         />
       )}
+
+      <StreakAnimationOverlay
+        isVisible={showStreakAnimation}
+        streak={dailyStreak.streak}
+        onComplete={() => setShowStreakAnimation(false)}
+      />
     </main>
   );
 }
