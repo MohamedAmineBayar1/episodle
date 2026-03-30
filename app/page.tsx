@@ -275,7 +275,7 @@ export default function Home({ date }: HomeProps) {
             </button>
           </div>
           <h1 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-white to-gray-500 bg-clip-text text-transparent drop-shadow-lg uppercase">
-            Episodle
+            {isArchive ? `Episodle - ${todayStr}` : 'Episodle'}
           </h1>
           <p className="text-gray-400 font-medium tracking-wide">
             {isArchive ? `Archive: ${todayStr}` : 'Guess the show from the random episode'}
