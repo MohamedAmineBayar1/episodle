@@ -148,10 +148,25 @@ export default function StreakModal({ streak, onClose, onRestoreUsed, hadBreakTo
             ) : null}
 
             {/* How it works */}
-            <div className="border-t border-gray-800 pt-4">
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Play the daily game every day — <span className="text-gray-400">win or lose</span> — to grow your streak. Restores refill every 1st of the month.
-              </p>
+            <div className="relative -mx-7 -mb-7 mt-2 p-7 bg-gray-800/20 border-t border-gray-800/60">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
+                <Shield size={12} className="text-gray-500"/>
+                How Restores Work
+              </h3>
+              <ul className="text-xs text-gray-400 space-y-3">
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-1.5 w-1 h-1 rounded-full bg-gray-600 shrink-0" />
+                  <p className="leading-snug">Play the daily game every day — <span className="text-gray-300 font-medium">win or lose</span> — to grow your streak.</p>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-1.5 w-1 h-1 rounded-full bg-orange-500/70 shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                  <p className="leading-snug"><span className="text-gray-200 font-semibold">Missed a day?</span> Play today's game to unlock the option to use a restore and save your streak.</p>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="mt-1.5 w-1 h-1 rounded-full bg-gray-600 shrink-0" />
+                  <p className="leading-snug">You receive 3 restores total. They refill on the 1st of every month.</p>
+                </li>
+              </ul>
             </div>
           </div>
         </motion.div>
