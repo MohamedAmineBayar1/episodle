@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
-import BMCWidget from "@/components/BMCWidget";
+import DonationWidget from "@/components/DonationWidget";
 import CookieBanner from "@/components/CookieBanner";
 import StreakAnnouncement from "@/components/StreakAnnouncement";
 import "./globals.css";
@@ -53,7 +53,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <BMCWidget />
+        <DonationWidget />
         <CookieBanner />
         <StreakAnnouncement />
       </body>

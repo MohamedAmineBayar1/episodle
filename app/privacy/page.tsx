@@ -48,7 +48,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold text-white">4. Third-Party Links</h2>
           <p className="text-gray-300 leading-relaxed">
-            Our site may contain links to other websites (like Buy Me a Coffee or Amazon). We are not responsible for the privacy practices of these external sites.
+            Our site may contain links to external websites. We are not responsible for the privacy practices of these external sites.
           </p>
         </section>
       </div>

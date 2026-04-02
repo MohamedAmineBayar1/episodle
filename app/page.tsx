@@ -331,7 +331,7 @@ export default function Home({ date }: HomeProps) {
           <span className="text-gray-700">|</span>
           <Link prefetch={false} href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           <span className="text-gray-700">|</span>
-          <button onClick={() => document.getElementById('bmc-wbtn')?.click()} className="hover:text-white transition-colors">Buy Me a Coffee</button>
+          <span className="text-gray-500 italic">Support the Dev</span>
         </div>
       </footer>
 
