@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
 interface Show {
     id: number;
@@ -21,6 +21,7 @@ export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }:
     const [isOpen, setIsOpen] = useState(false);
     const [selectedShow, setSelectedShow] = useState<Show | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const handleSubmit = () => {
         if (selectedShow) {
@@ -64,6 +65,13 @@ export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }:
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [wrapperRef]);
 
+    // Auto-focus on mount
+    useLayoutEffect(() => {
+        if (!disabled && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [disabled]);
+
     const handleSelect = (show: Show) => {
         setSelectedShow(show);
         setQuery(show.name);
@@ -76,9 +84,14 @@ export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }:
     };
 
     return (
-        <div ref={wrapperRef} className="relative w-full max-w-md mx-auto z-10 flex gap-2">
+        <div 
+            ref={wrapperRef} 
+            className="relative w-full max-w-md mx-auto z-10 flex gap-2"
+            onClick={() => inputRef.current?.focus()}
+        >
             <div className="relative flex-1">
                 <input
+                    ref={inputRef}
                     type="text"
                     disabled={disabled}
                     className="w-full p-4 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"

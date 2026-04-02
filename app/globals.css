@@ -11,13 +11,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Force BMC Widget to the left */
-#bmc-wbtn {
-  right: auto !important;
-  left: 18px !important;
-}
-
-iframe[name="bmc-iframe"] {
-  right: auto !important;
-  left: 18px !important;
+/* Footer and layout fixes */
+.selection\:bg-gray-800 *::selection {
+  background-color: #1f2937;
 }
