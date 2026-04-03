@@ -13,9 +13,11 @@ interface SearchBarProps {
     onSkip: () => void;
     disabled: boolean;
     guessedShowIds: number[];
+    correctShowId?: number;
+    correctShowName?: string;
 }
 
-export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }: SearchBarProps) {
+export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds, correctShowId, correctShowName }: SearchBarProps) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Show[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -43,13 +45,27 @@ export default function SearchBar({ onGuess, onSkip, disabled, guessedShowIds }:
             try {
                 const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
                 const data = await res.json();
-                const filtered = (data.results || []).filter((s: Show) => !guessedShowIds.includes(s.id));
+                
+                // Filter out already guessed shows and duplicates of the correct show
+                const filtered = (data.results || []).filter((s: Show) => {
+                    const isGuessed = guessedShowIds.includes(s.id);
+                    if (isGuessed) return false;
+
+                    // If it's a namesale of today's show but not the correct ID, hide it
+                    if (correctShowId && correctShowName && s.name.toLowerCase() === correctShowName.toLowerCase()) {
+                        return s.id === correctShowId;
+                    }
+
+                    return true;
+                });
+
                 setResults(filtered);
                 setIsOpen(true);
             } catch (e) {
                 console.error("Search failed", e);
             }
         };
+
 
         const debounce = setTimeout(fetchResults, 300);
         return () => clearTimeout(debounce);

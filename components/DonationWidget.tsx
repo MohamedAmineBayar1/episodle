@@ -24,10 +24,10 @@ export default function DonationWidget() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 md:bottom-6 md:left-6 z-50 group flex flex-col items-end md:items-start translate-y-0">
+    <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group flex flex-col items-end translate-y-0 pointer-events-none">
       {/* Tooltip/Card */}
       <div className="mb-4 w-72 opacity-0 -translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 transform-gpu">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl relative">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl relative pointer-events-auto">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-white">
               <div className="p-2 bg-red-500/10 rounded-lg text-red-500">
@@ -70,12 +70,12 @@ export default function DonationWidget() {
           </p>
 
           {/* Pointer */}
-          <div className="absolute right-6 md:right-auto md:left-6 -bottom-2 w-4 h-4 bg-gray-900 border-r border-b border-gray-800 rotate-45 group-hover:block hidden"></div>
+          <div className="absolute right-6 -bottom-2 w-4 h-4 bg-gray-900 border-r border-b border-gray-800 rotate-45 group-hover:block hidden"></div>
         </div>
       </div>
 
       {/* Main Trigger Button */}
-      <div className="flex items-center gap-3 px-4 py-4 md:px-5 md:py-3.5 bg-white text-black rounded-full shadow-2xl transition-all duration-300 ring-4 ring-white/10 cursor-pointer select-none">
+      <div className="flex items-center gap-3 px-4 py-4 md:px-5 md:py-3.5 bg-white text-black rounded-full shadow-2xl transition-all duration-300 ring-4 ring-white/10 cursor-pointer select-none pointer-events-auto">
         <div className="p-1 px-1.5 bg-red-500 rounded-lg text-white">
           <Heart size={16} className="fill-current" />
         </div>
@@ -84,6 +84,7 @@ export default function DonationWidget() {
         </span>
       </div>
     </div>
+
 
   );
 }

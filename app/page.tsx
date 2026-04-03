@@ -297,7 +297,10 @@ export default function Home({ date }: HomeProps) {
             onSkip={handleSkip}
             disabled={gameState !== 'playing'}
             guessedShowIds={guesses.map(g => g.showId).filter(id => id !== undefined) as number[]}
+            correctShowId={puzzle?.showId}
+            correctShowName={puzzle?.showName}
           />
+
         </section>
 
         <section>
