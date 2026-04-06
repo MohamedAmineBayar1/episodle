@@ -1,7 +1,6 @@
 "use client";
 
 import Countdown from './Countdown';
-import AdBanner from './AdBanner';
 import { useRouter } from 'next/navigation';
 import { hasPlayedDate } from '@/lib/storage';
 
@@ -133,7 +132,6 @@ export default function ShareModal({ isWinner, guesses, dailyShowName, stats, on
                     </button>
                 </div>
 
-                <AdBanner dataAdSlot="4480966445" />
             </div>
         </div>
     );
