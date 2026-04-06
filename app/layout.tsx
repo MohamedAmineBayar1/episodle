@@ -29,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <Script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7206404300999787" crossOrigin="anonymous" strategy="afterInteractive" />
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-GF0VQ5CQ4M" strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">
           {`
@@ -47,7 +48,6 @@ export default function RootLayout({
             })(window, document, "clarity", "script", "vxb9gp60yu");
           `}
         </Script>
-        <Script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7206404300999787" crossOrigin="anonymous" strategy="afterInteractive" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
