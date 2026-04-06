@@ -1,5 +1,7 @@
 User-agent: *
-Crawl-delay: 10
 Disallow: /api/
+
+User-agent: Mediapartners-Google
+Disallow:
 
 Sitemap: https://episodle.me/sitemap.xml
