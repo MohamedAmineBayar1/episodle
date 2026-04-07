@@ -322,22 +322,6 @@ export default function Home({ date }: HomeProps) {
 
       <AboutSection />
 
-      <footer className="mt-8 pb-8 text-center text-sm text-gray-500 font-medium tracking-wide">
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-          <span>&copy; {new Date().getFullYear()} Episodle</span>
-          <span className="text-gray-700">|</span>
-          <a href="#about" className="hover:text-white transition-colors">About</a>
-          <span className="text-gray-700">|</span>
-          <a href="#about" className="hover:text-white transition-colors">How to Play</a>
-          <span className="text-gray-700">|</span>
-          <a href="#contact" className="hover:text-white transition-colors">Contact</a>
-          <span className="text-gray-700">|</span>
-          <Link prefetch={false} href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-          <span className="text-gray-700">|</span>
-          <span className="text-gray-500 italic">Support the Dev</span>
-        </div>
-      </footer>
-
       {isModalOpen && gameState !== 'playing' && (
         <ShareModal
           isWinner={gameState === 'won'}

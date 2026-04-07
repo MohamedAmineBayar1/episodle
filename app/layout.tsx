@@ -4,6 +4,7 @@ import Script from "next/script";
 import DonationWidget from "@/components/DonationWidget";
 import CookieBanner from "@/components/CookieBanner";
 import StreakAnnouncement from "@/components/StreakAnnouncement";
+import Footer from "@/components/Footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -56,6 +57,7 @@ export default function RootLayout({
         <DonationWidget />
         <CookieBanner />
         <StreakAnnouncement />
+        <Footer />
       </body>
     </html>
   );
