@@ -4,13 +4,13 @@
 repos:
   # 1) Secrets detection (blocking)
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 
   # 2) Generic safety checks (blocking)
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: detect-private-key        # PEM/SSH private keys
       - id: check-added-large-files   # accidental dumps/binaries
@@ -25,3 +25,23 @@ repos:
         entry: npx eslint --quiet
         language: system
         files: \.(js|jsx|ts|tsx|mjs)$
+      
+      - id: semgrep-docker
+        name: semgrep (ERROR, via Docker)
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        entry: >
+          docker run --rm -v "${PWD}:/src" -w /src semgrep/semgrep
+          semgrep scan --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react --severity ERROR --error
+
+      - id: trivy-fs-docker
+        name: trivy dependencies (HIGH/CRITICAL, via Docker)
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        entry: >
+          docker run --rm -v "${PWD}:/src" aquasec/trivy fs
+          --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed
+          --exit-code 1 /src

@@ -2,8 +2,16 @@ name: DevSecOps Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: ['**']        # every push, on any branch
   pull_request:
+    branches: [main]        # every pull request (= GitLab merge request) to main
+  workflow_dispatch:        # manual "Run workflow" button
+  schedule:
+    - cron: '0 6 * * 1'     # weekly: catches new CVEs in code that didn't change
+
+concurrency:
+  group: devsecops-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -264,3 +272,27 @@ jobs:
             echo "Blocking threshold: CVSS >= ${{ env.CVSS_THRESHOLD }} (${{ env.BLOCK_SEVERITY }})"
             echo "Advisory (reported, not blocking): ${{ env.ADVISORY_SEVERITY }}, Semgrep WARNING, ZAP baseline, npm audit"
           } >> "$GITHUB_STEP_SUMMARY"
+    # ================= STAGE 5: alerting =================
+  notify:
+    name: "5 · notify (Slack)"
+    if: always() && needs.quality_gate.result != 'success'
+    needs: [quality_gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: notifications        # remove this line if you stored the secret as a repository secret
+    steps:
+      - name: Send Slack alert
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          payload=$(jq -n \
+            --arg text ":rotating_light: *Quality gate FAILED* on \`$REPO\`
+          Branch: \`$BRANCH\` | Triggered by: $ACTOR
+          Details: $RUN_URL" \
+            '{text: $text}')
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK_URL"
