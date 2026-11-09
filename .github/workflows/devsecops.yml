@@ -1,0 +1,148 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: episodle:${{ github.sha }}
+
+jobs:
+  secrets_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: >
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react
+          --severity ERROR --error
+          --json --output semgrep-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+
+  scan_dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: json
+          output: trivy-deps.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-deps-report
+          path: trivy-deps.json
+
+  npm_audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=high
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t $IMAGE .
+      - run: docker save $IMAGE -o image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  docker_scan:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: docker load -i image.tar
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: json
+          output: trivy-image.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-report
+          path: trivy-image.json
+
+  dast:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: |
+          docker load -i image.tar
+          docker run -d --name app -p 3000:3000 $IMAGE
+          for i in $(seq 1 30); do curl -sf http://localhost:3000 && break || sleep 2; done
+      - uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:3000
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: zap-report
+
+  iac_scan:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom
