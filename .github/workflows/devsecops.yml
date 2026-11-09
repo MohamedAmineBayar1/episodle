@@ -10,11 +10,18 @@ permissions:
 
 env:
   IMAGE: episodle:${{ github.sha }}
+  BLOCK_SEVERITY: HIGH,CRITICAL   # CVSS >= 7.0 -> blocks the build
+  ADVISORY_SEVERITY: MEDIUM,LOW   # reported only, never blocks
+  CVSS_THRESHOLD: "7.0"
+
+# Blocking = job is listed in quality_gate "needs" (and quality_gate is a required check).
+# Advisory = job is NOT in "needs", or uses continue-on-error / exit-code 0.
 
 jobs:
-  # ---------- Stage 1: cheap, fast checks ----------
-  secrets_scan:
+  # ================= STAGE 1: fast checks =================
+  secrets_scan:   # BLOCKING: any secret fails
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
@@ -26,43 +33,72 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  sast:
+  sast:   # BLOCKING on ERROR, ADVISORY on WARNING
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     container: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      - run: >
+      # Blocking pass
+      - name: Semgrep (ERROR, blocking)
+        run: >
           semgrep scan
           --config p/owasp-top-ten --config p/typescript
           --config p/nextjs --config p/react
           --severity ERROR --error
           --json --output semgrep-report.json
+      # Non-blocking pass (runs even if the blocking pass failed)
+      - name: Semgrep (WARNING, non-blocking)
+        if: always()
+        continue-on-error: true
+        run: >
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react
+          --severity WARNING
+          --json --output semgrep-warnings.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: semgrep-report
-          path: semgrep-report.json
+          path: |
+            semgrep-report.json
+            semgrep-warnings.json
 
-  scan_dependencies:
+  # ================= STAGE 2: dependencies, IaC, build =================
+  scan_dependencies:   # BLOCKING on HIGH/CRITICAL with fix, ADVISORY on MEDIUM/LOW
     needs: [secrets_scan, sast]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       # Readable output in the logs (non-blocking)
-      - uses: aquasecurity/trivy-action@v0.36.0
+      - name: Trivy fs (HIGH/CRITICAL, table, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scanners: vuln
-          severity: HIGH,CRITICAL
+          severity: ${{ env.BLOCK_SEVERITY }}
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+      # Advisory findings
+      - name: Trivy fs (MEDIUM/LOW, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: ${{ env.ADVISORY_SEVERITY }}
           ignore-unfixed: true
           format: table
           exit-code: '0'
       # Blocking run + JSON report
-      - uses: aquasecurity/trivy-action@v0.36.0
+      - name: Trivy fs (HIGH/CRITICAL, blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scanners: vuln
-          severity: HIGH,CRITICAL
+          severity: ${{ env.BLOCK_SEVERITY }}
           ignore-unfixed: true
           format: json
           output: trivy-deps.json
@@ -73,8 +109,9 @@ jobs:
           name: trivy-deps-report
           path: trivy-deps.json
 
-  npm_audit:   # informational: overlaps with Trivy SCA, so not part of the gate
+  npm_audit:   # ADVISORY: overlaps with Trivy SCA, not part of the gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -85,22 +122,23 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit --omit=dev --audit-level=high
 
-  iac_scan:
+  iac_scan:   # BLOCKING on HIGH/CRITICAL
     needs: [secrets_scan, sast]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
-          severity: HIGH,CRITICAL
+          severity: ${{ env.BLOCK_SEVERITY }}
           format: table
           exit-code: '1'
 
-  # ---------- Stage 2: build + image-based checks ----------
-  build:
+  build:   # BLOCKING: the image must build
     needs: [secrets_scan, sast]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t $IMAGE .
@@ -111,18 +149,22 @@ jobs:
           path: image.tar
           retention-days: 1
 
-  docker_scan:
+  # ================= STAGE 3: image-based checks =================
+  docker_scan:   # BLOCKING on HIGH/CRITICAL with fix + secrets, ADVISORY on MEDIUM/LOW
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: image
       - run: docker load -i image.tar
-      - uses: aquasecurity/trivy-action@v0.36.0
+      # Report only (exit-code 0): the blocking decision is taken in "Fail if findings"
+      - name: Trivy image (HIGH/CRITICAL, JSON report)
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}
-          severity: HIGH,CRITICAL
+          severity: ${{ env.BLOCK_SEVERITY }}
           ignore-unfixed: true
           format: json
           output: trivy-image.json
@@ -132,6 +174,14 @@ jobs:
         with:
           name: trivy-image-report
           path: trivy-image.json
+      - name: Trivy image (MEDIUM/LOW, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: ${{ env.ADVISORY_SEVERITY }}
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
       - name: Show findings
         run: |
           echo "--- Vulnerabilities ---"
@@ -144,9 +194,10 @@ jobs:
           echo "Findings: $n"
           [ "$n" -eq 0 ]
 
-  sbom:
+  sbom:   # BLOCKING only in the sense that the SBOM must be generated
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -159,9 +210,10 @@ jobs:
           output-file: sbom.cdx.json
           artifact-name: sbom
 
-  dast:   # non-blocking by design: baseline scan warnings are advisory
+  dast:   # ADVISORY: baseline scan warnings, not in quality_gate "needs"
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -180,8 +232,8 @@ jobs:
           allow_issue_writing: false
           artifact_name: zap-report
 
-  # ---------- Final gate: the single required status check ----------
-  quality_gate:
+  # ================= STAGE 4: final gate =================
+  quality_gate:   # the single required status check
     if: always()
     needs: [secrets_scan, sast, scan_dependencies, iac_scan, build, docker_scan, sbom]
     runs-on: ubuntu-latest
@@ -195,3 +247,20 @@ jobs:
             exit 1
           fi
           echo "All blocking controls passed."
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Quality gate"
+            echo "| Control | Result |"
+            echo "|---|---|"
+            echo "| secrets_scan | ${{ needs.secrets_scan.result }} |"
+            echo "| sast | ${{ needs.sast.result }} |"
+            echo "| scan_dependencies | ${{ needs.scan_dependencies.result }} |"
+            echo "| iac_scan | ${{ needs.iac_scan.result }} |"
+            echo "| docker_scan | ${{ needs.docker_scan.result }} |"
+            echo "| sbom | ${{ needs.sbom.result }} |"
+            echo ""
+            echo "Blocking threshold: CVSS >= ${{ env.CVSS_THRESHOLD }} (${{ env.BLOCK_SEVERITY }})"
+            echo "Advisory (reported, not blocking): ${{ env.ADVISORY_SEVERITY }}, Semgrep WARNING, ZAP baseline, npm audit"
+          } >> "$GITHUB_STEP_SUMMARY"
