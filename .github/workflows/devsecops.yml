@@ -1,0 +1,197 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: episodle:${{ github.sha }}
+
+jobs:
+  # ---------- Stage 1: cheap, fast checks ----------
+  secrets_scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: >
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react
+          --severity ERROR --error
+          --json --output semgrep-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+
+  scan_dependencies:
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Readable output in the logs (non-blocking)
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+      # Blocking run + JSON report
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-deps.json
+          exit-code: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-deps-report
+          path: trivy-deps.json
+
+  npm_audit:   # informational: overlaps with Trivy SCA, so not part of the gate
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm audit --omit=dev --audit-level=high
+
+  iac_scan:
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: '1'
+
+  # ---------- Stage 2: build + image-based checks ----------
+  build:
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t $IMAGE .
+      - run: docker save $IMAGE -o image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  docker_scan:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: docker load -i image.tar
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: json
+          output: trivy-image.json
+          exit-code: '0'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-report
+          path: trivy-image.json
+      - name: Show findings
+        run: |
+          echo "--- Vulnerabilities ---"
+          jq -r '.Results[]? | .Target as $t | (.Vulnerabilities // [])[] | [$t, .PkgName, .VulnerabilityID, .Severity, .InstalledVersion, .FixedVersion] | @tsv' trivy-image.json
+          echo "--- Secrets ---"
+          jq -r '.Results[]? | .Target as $t | (.Secrets // [])[] | [$t, .RuleID, .Title] | @tsv' trivy-image.json
+      - name: Fail if findings
+        run: |
+          n=$(jq '[.Results[]? | ((.Vulnerabilities // []) + (.Secrets // []))[]] | length' trivy-image.json)
+          echo "Findings: $n"
+          [ "$n" -eq 0 ]
+
+  sbom:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: docker load -i image.tar
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom
+
+  dast:   # non-blocking by design: baseline scan warnings are advisory
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: |
+          docker load -i image.tar
+          docker run -d --name app -p 3000:3000 $IMAGE
+          for i in $(seq 1 30); do curl -sf http://localhost:3000 && break || sleep 2; done
+          curl -sf http://localhost:3000 > /dev/null || (docker logs app; exit 1)
+      - uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:3000
+          rules_file_name: .zap/rules.tsv
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: zap-report
+
+  # ---------- Final gate: the single required status check ----------
+  quality_gate:
+    if: always()
+    needs: [secrets_scan, sast, scan_dependencies, iac_scan, build, docker_scan, sbom]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate blocking jobs
+        run: |
+          echo '${{ toJson(needs) }}'
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || \
+                "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "::error::Quality gate failed: a blocking security control did not pass."
+            exit 1
+          fi
+          echo "All blocking controls passed."
