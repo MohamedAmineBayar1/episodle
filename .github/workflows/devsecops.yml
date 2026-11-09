@@ -124,21 +124,25 @@ jobs:
           image-ref: ${{ env.IMAGE }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          format: table
-          exit-code: '0'
-      - uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
           format: json
           output: trivy-image.json
-          exit-code: '1'
+          exit-code: '0'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-image-report
           path: trivy-image.json
+      - name: Show findings
+        run: |
+          echo "--- Vulnerabilities ---"
+          jq -r '.Results[]? | .Target as $t | (.Vulnerabilities // [])[] | [$t, .PkgName, .VulnerabilityID, .Severity, .InstalledVersion, .FixedVersion] | @tsv' trivy-image.json
+          echo "--- Secrets ---"
+          jq -r '.Results[]? | .Target as $t | (.Secrets // [])[] | [$t, .RuleID, .Title] | @tsv' trivy-image.json
+      - name: Fail if findings
+        run: |
+          n=$(jq '[.Results[]? | ((.Vulnerabilities // []) + (.Secrets // []))[]] | length' trivy-image.json)
+          echo "Findings: $n"
+          [ "$n" -eq 0 ]
 
   sbom:
     needs: build
