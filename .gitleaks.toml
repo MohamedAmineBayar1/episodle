@@ -4,8 +4,14 @@ title = "episodle gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Generated build output (OpenNext/Next.js), not source code"
+description = "Allow public SonarQube project key and generated build output"
+regexTarget = "line"
+
 paths = [
   '''\.open-next/''',
   '''\.next/''',
+]
+
+regexes = [
+  '''(?i)sonar\.projectKey\s*=.*'''
 ]

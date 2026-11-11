@@ -85,6 +85,18 @@ jobs:
             semgrep-report.json
             semgrep-warnings.json
           retention-days: 30
+  sonarqube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: SonarSource/sonarqube-scan-action@v4.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
 
   # ================= STAGE 2: dependencies, IaC, build =================
   scan_dependencies:   # BLOCKING on HIGH/CRITICAL with fix, ADVISORY on MEDIUM/LOW
@@ -290,7 +302,7 @@ jobs:
   # ================= STAGE 4: final gate =================
   quality_gate:   # the single required status check
     if: always()
-    needs: [secrets_scan, sast, scan_dependencies, iac_scan, build, docker_scan, sbom]
+    needs: [secrets_scan, sast, scan_dependencies, iac_scan, build, docker_scan, sbom,sonarqube]
     runs-on: ubuntu-latest
     steps:
       - name: Evaluate blocking jobs
