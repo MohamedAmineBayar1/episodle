@@ -1,5 +1,5 @@
 # Pre-commit hooks: block a commit that contains a secret or an obvious flaw.
-# Install once:  pip install pre-commit   then   pre-commit install
+# Install once:  pip install pre-commit   then   pre-commit install --hook-type pre-commit --hook-type pre-push
 # Run on everything:  pre-commit run --all-files
 repos:
   # 1) Secrets detection (blocking)
@@ -12,12 +12,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: detect-private-key        # PEM/SSH private keys
-      - id: check-added-large-files   # accidental dumps/binaries
+      - id: detect-private-key
+      - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-yaml
 
-  # 3) Obvious code flaws: ESLint with the security plugin (blocking on errors)
+  # 3) Local hooks
   - repo: local
     hooks:
       - id: eslint-security
@@ -25,23 +25,17 @@ repos:
         entry: npx eslint --quiet
         language: system
         files: \.(js|jsx|ts|tsx|mjs)$
-      
+
       - id: semgrep-docker
         name: semgrep (ERROR, via Docker)
         language: system
         pass_filenames: false
         stages: [pre-push]
-        entry: >
-          docker run --rm -v "${PWD}:/src" -w /src semgrep/semgrep
-          semgrep scan --config p/owasp-top-ten --config p/typescript
-          --config p/nextjs --config p/react --severity ERROR --error
+        entry: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-scan.ps1 -Check sast
 
       - id: trivy-fs-docker
         name: trivy dependencies (HIGH/CRITICAL, via Docker)
         language: system
         pass_filenames: false
         stages: [pre-push]
-        entry: >
-          docker run --rm -v "${PWD}:/src" aquasec/trivy fs
-          --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed
-          --exit-code 1 /src
+        entry: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-scan.ps1 -Check deps

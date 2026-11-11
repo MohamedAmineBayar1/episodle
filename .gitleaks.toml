@@ -1,0 +1,11 @@
+title = "episodle gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated build output (OpenNext/Next.js), not source code"
+paths = [
+  '''\.open-next/''',
+  '''\.next/''',
+]
