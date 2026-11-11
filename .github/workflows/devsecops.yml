@@ -113,18 +113,7 @@ jobs:
           ignore-unfixed: true
           format: table
           exit-code: '0'
-      # HTML report (non-blocking). Placed BEFORE the blocking step so it always runs.
-      - name: Trivy fs (HIGH/CRITICAL, HTML report)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scanners: vuln
-          severity: ${{ env.BLOCK_SEVERITY }}
-          ignore-unfixed: true
-          format: template
-          template: '@/contrib/html.tpl'
-          output: trivy-deps.html
-          exit-code: '0'
+      
       # Blocking run + JSON report
       - name: Trivy fs (HIGH/CRITICAL, blocking)
         uses: aquasecurity/trivy-action@v0.36.0
@@ -182,15 +171,6 @@ jobs:
           format: json
           output: trivy-iac.json
           exit-code: '0'
-      - name: Trivy config (HTML report)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: config
-          severity: ${{ env.BLOCK_SEVERITY }}
-          format: template
-          template: '@/contrib/html.tpl'
-          output: trivy-iac.html
-          exit-code: '0'
       - name: Trivy config (table, blocking)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -240,16 +220,6 @@ jobs:
           ignore-unfixed: true
           format: json
           output: trivy-image.json
-          exit-code: '0'
-      - name: Trivy image (HIGH/CRITICAL, HTML report)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.IMAGE }}
-          severity: ${{ env.BLOCK_SEVERITY }}
-          ignore-unfixed: true
-          format: template
-          template: '@/contrib/html.tpl'
-          output: trivy-image.html
           exit-code: '0'
       - uses: actions/upload-artifact@v4
         if: always()
