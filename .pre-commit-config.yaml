@@ -26,13 +26,13 @@ repos:
         language: system
         files: \.(js|jsx|ts|tsx|mjs)$
 
-      - id: semgrep-docker
+      - id: semgrep
         name: semgrep (ERROR, via Docker)
+        entry: docker run --rm -v "${PWD}:/src" -w /src semgrep/semgrep semgrep scan --config p/owasp-top-ten --config p/typescript --severity ERROR --error --metrics=off
         language: system
-        pass_filenames: false
+        files: \.(ts|tsx|js|jsx)$
+        pass_filenames: true
         stages: [pre-push]
-        entry: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-scan.ps1 -Check sast
-
       - id: trivy-fs-docker
         name: trivy dependencies (HIGH/CRITICAL, via Docker)
         language: system
