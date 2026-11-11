@@ -343,7 +343,7 @@ jobs:
           retention-days: 30
 
   # ================= STAGE 6: alerting =================
-  notify:
+notify:
   name: "6 · notify (Slack)"
   if: always() && (needs.quality_gate.result == 'failure' || needs.quality_gate.result == 'success')
   needs: [quality_gate]
