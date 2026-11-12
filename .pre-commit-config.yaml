@@ -1,23 +1,23 @@
 # Pre-commit hooks: block a commit that contains a secret or an obvious flaw.
-# Install once:  pip install pre-commit   then   pre-commit install
+# Install once:  pip install pre-commit   then   pre-commit install --hook-type pre-commit --hook-type pre-push
 # Run on everything:  pre-commit run --all-files
 repos:
   # 1) Secrets detection (blocking)
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 
   # 2) Generic safety checks (blocking)
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
-      - id: detect-private-key        # PEM/SSH private keys
-      - id: check-added-large-files   # accidental dumps/binaries
+      - id: detect-private-key
+      - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-yaml
 
-  # 3) Obvious code flaws: ESLint with the security plugin (blocking on errors)
+  # 3) Local hooks
   - repo: local
     hooks:
       - id: eslint-security
@@ -25,3 +25,17 @@ repos:
         entry: npx eslint --quiet
         language: system
         files: \.(js|jsx|ts|tsx|mjs)$
+
+      - id: semgrep
+        name: semgrep (ERROR, via Docker)
+        entry: docker run --rm -v "${PWD}:/src" -w /src semgrep/semgrep semgrep scan --config p/owasp-top-ten --config p/typescript --severity ERROR --error --metrics=off
+        language: system
+        files: \.(ts|tsx|js|jsx)$
+        pass_filenames: true
+        stages: [pre-push]
+      - id: trivy-fs-docker
+        name: trivy dependencies (HIGH/CRITICAL, via Docker)
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        entry: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-scan.ps1 -Check deps

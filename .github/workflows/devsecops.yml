@@ -1,0 +1,383 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: ['**']        # every push, on any branch
+  pull_request:
+    branches: [main]        # every pull request (= GitLab merge request) to main
+  workflow_dispatch:        # manual "Run workflow" button
+  schedule:
+    - cron: '0 6 * * 1'     # weekly: catches new CVEs in code that didn't change
+
+# Push and PR runs of the same branch share one group, so the older run is cancelled.
+concurrency:
+  group: devsecops-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: episodle:${{ github.sha }}
+  BLOCK_SEVERITY: HIGH,CRITICAL   # CVSS >= 7.0 -> blocks the build
+  ADVISORY_SEVERITY: MEDIUM,LOW   # reported only, never blocks
+  CVSS_THRESHOLD: "7.0"
+
+# Blocking = job is listed in quality_gate "needs" (and quality_gate is a required check).
+# Advisory = job is NOT in "needs", or uses continue-on-error / exit-code 0.
+#
+# Reporting convention: every scan job uploads its raw report (JSON, plus HTML when the
+# tool supports it) with `if: always()`, in an artifact whose name ends with "-report".
+# The final "report" job downloads all "*-report" artifacts and builds one HTML dashboard
+# with scripts/build-report.mjs.
+
+jobs:
+  # ================= STAGE 1: fast checks =================
+  secrets_scan:   # BLOCKING: any secret fails
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history, needed by Gitleaks
+      - name: Install Gitleaks (same version as the pre-commit hook)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz | tar -xz gitleaks
+      - name: Gitleaks scan (blocking)
+        # --redact keeps the secret value out of logs and reports
+        run: ./gitleaks detect --source . --redact --verbose --exit-code 1 --report-format json --report-path gitleaks-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
+
+  sast:   # BLOCKING on ERROR, ADVISORY on WARNING
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      # Blocking pass: readable findings in the log + JSON file
+      - name: Semgrep (ERROR, blocking)
+        run: >
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react
+          --severity ERROR --error
+          --json-output=semgrep-report.json
+      # Non-blocking pass (runs even if the blocking pass failed)
+      - name: Semgrep (WARNING, non-blocking)
+        if: always()
+        continue-on-error: true
+        run: >
+          semgrep scan
+          --config p/owasp-top-ten --config p/typescript
+          --config p/nextjs --config p/react
+          --severity WARNING
+          --json-output=semgrep-warnings.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: |
+            semgrep-report.json
+            semgrep-warnings.json
+          retention-days: 30
+  sonarqube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+
+  # ================= STAGE 2: dependencies, IaC, build =================
+  scan_dependencies:   # BLOCKING on HIGH/CRITICAL with fix, ADVISORY on MEDIUM/LOW
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Readable output in the logs (non-blocking)
+      - name: Trivy fs (HIGH/CRITICAL, table, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: ${{ env.BLOCK_SEVERITY }}
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+      # Advisory findings
+      - name: Trivy fs (MEDIUM/LOW, table, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: ${{ env.ADVISORY_SEVERITY }}
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+      
+      # Blocking run + JSON report
+      - name: Trivy fs (HIGH/CRITICAL, blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln
+          severity: ${{ env.BLOCK_SEVERITY }}
+          ignore-unfixed: true
+          format: json
+          output: trivy-deps.json
+          exit-code: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-deps-report
+          path: |
+            trivy-deps.json
+          retention-days: 30
+
+  npm_audit:   # ADVISORY: overlaps with Trivy SCA, not part of the gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: npm audit (JSON report)
+        run: npm audit --omit=dev --json > npm-audit.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+          retention-days: 30
+      - name: npm audit (readable, fails on HIGH)
+        run: npm audit --omit=dev --audit-level=high
+
+  iac_scan:   # BLOCKING on HIGH/CRITICAL
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Reports first (non-blocking), so they exist even when the gate fails
+      - name: Trivy config (JSON report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          severity: ${{ env.BLOCK_SEVERITY }}
+          format: json
+          output: trivy-iac.json
+          exit-code: '0'
+      - name: Trivy config (table, blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          severity: ${{ env.BLOCK_SEVERITY }}
+          format: table
+          exit-code: '1'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-iac-report
+          path: |
+            trivy-iac.json
+          retention-days: 30
+
+  build:   # BLOCKING: the image must build
+    needs: [secrets_scan, sast]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t $IMAGE .
+      - run: docker save $IMAGE -o image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  # ================= STAGE 3: image-based checks =================
+  docker_scan:   # BLOCKING on HIGH/CRITICAL with fix + secrets, ADVISORY on MEDIUM/LOW
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: docker load -i image.tar
+      # Report only (exit-code 0): the blocking decision is taken in "Fail if findings"
+      - name: Trivy image (HIGH/CRITICAL, JSON report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: ${{ env.BLOCK_SEVERITY }}
+          ignore-unfixed: true
+          format: json
+          output: trivy-image.json
+          exit-code: '0'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-report
+          path: |
+            trivy-image.json
+          retention-days: 30
+      - name: Trivy image (MEDIUM/LOW, non-blocking)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: ${{ env.ADVISORY_SEVERITY }}
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'
+      - name: Show findings
+        run: |
+          echo "--- Vulnerabilities ---"
+          jq -r '.Results[]? | .Target as $t | (.Vulnerabilities // [])[] | [$t, .PkgName, .VulnerabilityID, .Severity, .InstalledVersion, .FixedVersion] | @tsv' trivy-image.json
+          echo "--- Secrets ---"
+          jq -r '.Results[]? | .Target as $t | (.Secrets // [])[] | [$t, .RuleID, .Title] | @tsv' trivy-image.json
+      - name: Fail if findings
+        run: |
+          n=$(jq '[.Results[]? | ((.Vulnerabilities // []) + (.Secrets // []))[]] | length' trivy-image.json)
+          echo "Findings: $n"
+          [ "$n" -eq 0 ]
+
+  sbom:   # BLOCKING only in the sense that the SBOM must be generated
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: docker load -i image.tar
+      - uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom-report
+
+  dast:   # ADVISORY: baseline scan warnings, not in quality_gate "needs"
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - run: |
+          docker load -i image.tar
+          docker run -d --name app -p 3000:3000 $IMAGE
+          for i in $(seq 1 30); do curl -sf http://localhost:3000 && break || sleep 2; done
+          curl -sf http://localhost:3000 > /dev/null || (docker logs app; exit 1)
+      - uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:3000
+          rules_file_name: .zap/rules.tsv
+          fail_action: false
+          allow_issue_writing: false
+          artifact_name: zap-report   # contains HTML, JSON and Markdown reports
+
+  # ================= STAGE 4: final gate =================
+  quality_gate:   # the single required status check
+    if: always()
+    needs: [secrets_scan, sast, scan_dependencies, iac_scan, build, docker_scan, sbom,sonarqube]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate blocking jobs
+        run: |
+          echo '${{ toJson(needs) }}'
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || \
+                "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "::error::Quality gate failed: a blocking security control did not pass."
+            exit 1
+          fi
+          echo "All blocking controls passed."
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Quality gate"
+            echo "| Control | Result |"
+            echo "|---|---|"
+            echo "| secrets_scan | ${{ needs.secrets_scan.result }} |"
+            echo "| sast | ${{ needs.sast.result }} |"
+            echo "| scan_dependencies | ${{ needs.scan_dependencies.result }} |"
+            echo "| iac_scan | ${{ needs.iac_scan.result }} |"
+            echo "| docker_scan | ${{ needs.docker_scan.result }} |"
+            echo "| sbom | ${{ needs.sbom.result }} |"
+            echo ""
+            echo "Blocking threshold: CVSS >= ${{ env.CVSS_THRESHOLD }} (${{ env.BLOCK_SEVERITY }})"
+            echo "Advisory (reported, not blocking): ${{ env.ADVISORY_SEVERITY }}, Semgrep WARNING, ZAP baseline, npm audit"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ================= STAGE 5: reporting =================
+  report:   # NOT part of the gate: a reporting problem must never block a merge
+    if: always()
+    needs: [secrets_scan, sast, scan_dependencies, npm_audit, iac_scan, docker_scan, sbom, dast]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-report'    # all report artifacts, but not the "image" tarball
+          path: reports
+      - name: Build combined HTML dashboard + run summary
+        run: node scripts/build-report.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: security-dashboard
+          path: |
+            security-report/
+            reports/
+          retention-days: 30
+
+  # ================= STAGE 6: alerting =================
+  notify:
+    name: "6 · notify (Slack)"
+    if: always() && (needs.quality_gate.result == 'failure' || needs.quality_gate.result == 'success')
+    needs: [quality_gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: notifications
+    steps:
+      - name: Send Slack message
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RESULT: ${{ needs.quality_gate.result }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$RESULT" = "success" ]; then
+            icon=":white_check_mark:"; label="Quality gate PASSED"
+          else
+            icon=":rotating_light:"; label="Quality gate FAILED"
+          fi
+          text=$(printf '%s *%s* on `%s`\nBranch: `%s` | Triggered by: %s\nDetails and reports: %s' \
+            "$icon" "$label" "$REPO" "$BRANCH" "$ACTOR" "$RUN_URL")
+          payload=$(jq -n --arg text "$text" '{text: $text}')
+          curl -sf -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"

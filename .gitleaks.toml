@@ -1,0 +1,17 @@
+title = "episodle gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow public SonarQube project key and generated build output"
+regexTarget = "line"
+
+paths = [
+  '''\.open-next/''',
+  '''\.next/''',
+]
+
+regexes = [
+  '''(?i)sonar\.projectKey\s*=.*'''
+]
